@@ -34,7 +34,7 @@
                                         <div class="form-group">
                                             <label for="invoiceDate">Invoice Date</label>
                                             <input type="date" class="form-control" id="invoiceDate" name="invoice_date" 
-                                                   value="" readonly>
+                                                   readonly>
                                         </div>
                                     </div>
                                 </div>
@@ -122,9 +122,18 @@
 </div>
 
 <script>
+// Debug function to check if jQuery is loaded
+console.log('Invoice Creation page loaded');
+console.log('jQuery available:', typeof $ !== 'undefined');
+
 $(document).ready(function() {
+    console.log('jQuery document ready executed');
     let serialNumbers = [];
     let serialLookupData = {};
+
+    // Set current date
+    const today = new Date();
+    $('#invoiceDate').val(today.toISOString().split('T')[0]);
 
     // Load business partners on page load
     loadBusinessPartners();
@@ -144,29 +153,36 @@ $(document).ready(function() {
     $('#createInvoiceBtn').on('click', createInvoice);
 
     function loadBusinessPartners() {
+        console.log('Loading business partners...');
+        
+        // Add manual input option first
+        let customerSelect = $('#customerCode');
+        customerSelect.empty().append('<option value="">Select Customer...</option>');
+        customerSelect.append('<option value="manual">Enter Customer Code Manually</option>');
+        
         $.ajax({
             url: '/invoice_creation/api/business-partners',
             method: 'GET',
+            timeout: 10000,
             success: function(response) {
-                if (response.success) {
-                    let customerSelect = $('#customerCode');
+                console.log('Business partners response:', response);
+                if (response.success && response.business_partners) {
+                    // Clear and rebuild dropdown
                     customerSelect.empty().append('<option value="">Select Customer...</option>');
+                    customerSelect.append('<option value="manual">Enter Customer Code Manually</option>');
                     
                     response.business_partners.forEach(function(partner) {
-                        customerSelect.append(`<option value="${partner.CardCode}">${partner.CardCode} - ${partner.CardName}</option>`);
+                        let cardName = partner.CardName || 'N/A';
+                        customerSelect.append(`<option value="${partner.CardCode}">${partner.CardCode} - ${cardName}</option>`);
                     });
+                    console.log('Loaded', response.business_partners.length, 'business partners');
                 } else {
-                    console.error('Failed to load business partners:', response.error);
-                    // Show offline fallback
-                    let customerSelect = $('#customerCode');
-                    customerSelect.empty().append('<option value="">SAP B1 Offline - Enter manually</option>');
+                    console.warn('SAP B1 unavailable - using offline mode');
                 }
             },
             error: function(xhr, status, error) {
-                console.error('Error loading business partners:', error);
-                // Show offline fallback
-                let customerSelect = $('#customerCode');
-                customerSelect.empty().append('<option value="">SAP B1 Offline - Enter manually</option>');
+                console.warn('Business partners API error:', error);
+                console.log('Running in offline mode');
             }
         });
     }
@@ -174,28 +190,33 @@ $(document).ready(function() {
     function autoFetchSerialDetails() {
         let serialNumber = $('#serialNumberInput').val().trim();
         if (!serialNumber) {
-            alert('Please enter a serial number first');
+            console.log('No serial number entered');
             return;
         }
 
-        showLoading('Fetching serial number details...');
+        console.log('Fetching details for serial number:', serialNumber);
+        showLoading('Fetching serial number details from SAP...');
 
         $.ajax({
             url: '/invoice_creation/api/validate-serial-number',
             method: 'GET',
             data: { serial_number: serialNumber },
+            timeout: 15000,
             success: function(response) {
                 hideLoading();
-                if (response.success) {
+                console.log('Serial validation response:', response);
+                
+                if (response.success && response.item_data) {
                     // Display item details below the input
                     let itemData = response.item_data;
                     let detailsHtml = `
                         <div class="alert alert-info mt-2" id="serialDetails">
-                            <h6><i class="fas fa-info-circle"></i> Serial Number Details:</h6>
+                            <h6><i class="fas fa-info-circle"></i> Serial Number Details Found:</h6>
                             <p class="mb-1"><strong>Item Code:</strong> ${itemData.ItemCode}</p>
                             <p class="mb-1"><strong>Item Name:</strong> ${itemData.ItemName}</p>
                             <p class="mb-1"><strong>Warehouse:</strong> ${itemData.WhsCode} - ${itemData.WhsName}</p>
                             <p class="mb-0"><strong>Branch:</strong> ${itemData.BPLName}</p>
+                            <small class="text-muted">Press Enter to add this item to invoice</small>
                         </div>
                     `;
                     
@@ -205,19 +226,38 @@ $(document).ready(function() {
                     
                     // Store the fetched data for later use
                     window.currentSerialData = itemData;
+                    console.log('Serial data stored:', itemData);
                 } else {
-                    alert('Error: ' + response.error);
+                    console.warn('Serial number not found:', response.error || 'Unknown error');
+                    let errorHtml = `
+                        <div class="alert alert-warning mt-2" id="serialDetails">
+                            <h6><i class="fas fa-exclamation-triangle"></i> Serial Number Not Found</h6>
+                            <p class="mb-0">Serial number "${serialNumber}" was not found in SAP or has no available quantity.</p>
+                            <small class="text-muted">Please verify the serial number</small>
+                        </div>
+                    `;
                     $('#serialDetails').remove();
+                    $('#serialNumberInput').closest('.form-group').append(errorHtml);
                 }
             },
             error: function(xhr, status, error) {
                 hideLoading();
-                let errorMessage = 'Error fetching serial number details';
+                console.error('Serial validation error:', error, xhr.responseJSON);
+                
+                let errorMessage = 'SAP connection failed';
                 if (xhr.responseJSON && xhr.responseJSON.error) {
                     errorMessage = xhr.responseJSON.error;
                 }
-                alert(errorMessage);
+                
+                let errorHtml = `
+                    <div class="alert alert-danger mt-2" id="serialDetails">
+                        <h6><i class="fas fa-exclamation-circle"></i> Connection Error</h6>
+                        <p class="mb-0">${errorMessage}</p>
+                        <small class="text-muted">Check SAP connection and try again</small>
+                    </div>
+                `;
                 $('#serialDetails').remove();
+                $('#serialNumberInput').closest('.form-group').append(errorHtml);
             }
         });
     }

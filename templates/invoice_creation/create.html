@@ -264,6 +264,9 @@ function createDraftInvoice() {
         $.ajax({
             url: '/invoice_creation/create_draft',
             method: 'POST',
+            xhrFields: {
+                withCredentials: true
+            },
             success: function(response) {
                 if (response.success && response.invoice_id) {
                     currentInvoiceId = response.invoice_id;
@@ -292,9 +295,7 @@ function addRowToTable(itemData) {
         // Hide no items message
         noItemsMessage.hide();
         
-        const validationBadge = itemData.validation_status === 'validated' ? 
-            '<span class="badge badge-success">Valid</span>' : 
-            '<span class="badge badge-danger">Failed</span>';
+        const validationBadge = '<span class="badge badge-success">Valid</span>';
         
         const row = `
             <tr class="table-row-item" data-item-id="${itemData.id}">
@@ -463,8 +464,17 @@ function loadBusinessPartners() {
             return;
         }
 
-        // Check if serial number already exists in current array
-        if (serialNumbers.some(item => item.serialNumber === serialNumber)) {
+        // Check if serial number already exists in current table
+        let alreadyExists = false;
+        $('#serialItemsBody tr').each(function() {
+            const existingSerial = $(this).find('td:nth-child(2) code').text().trim();
+            if (existingSerial === serialNumber) {
+                alreadyExists = true;
+                return false; // break the loop
+            }
+        });
+        
+        if (alreadyExists) {
             showTemporaryMessage('Serial number already added to this invoice.', 'warning');
             return;
         }
@@ -495,6 +505,9 @@ function loadBusinessPartners() {
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify(addData),
+            xhrFields: {
+                withCredentials: true
+            },
             success: function(response) {
                 hideLoading();
                 console.log('✅ Serial item added successfully:', response);
@@ -669,7 +682,25 @@ function updateItemCountOld() {
     }
 
     function updateItemCount() {
-        $('#itemCount').text(serialNumbers.length + ' Items');
+        const itemCount = $('#serialItemsBody tr').length;
+        $('#itemCount').text(itemCount + ' Items');
+        
+        // Update summary cards based on actual table data
+        let validatedCount = 0;
+        let failedCount = 0;
+        
+        $('#serialItemsBody tr').each(function() {
+            const validationBadge = $(this).find('td:nth-child(7)').text().trim();
+            if (validationBadge === 'Valid') {
+                validatedCount++;
+            } else {
+                failedCount++;
+            }
+        });
+        
+        $('#validatedCount').text(validatedCount);
+        $('#failedCount').text(failedCount);
+        $('#totalCount').text(itemCount);
     }
 
     function clearAllItems() {

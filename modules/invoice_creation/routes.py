@@ -167,7 +167,7 @@ def validate_serial_number():
             }), 500
         
         try:
-            # Use SAP SQL Query for Invoice Creation serial number validation
+            # Use SAP SQL Query for Invoice Creation serial number validation (Note: SAP query name is 'Invoise_creation')
             url = f"{sap.base_url}/b1s/v1/SQLQueries('Invoise_creation')/List"
             payload = {
                 "ParamList": f"serial_number='{serial_number}'"
@@ -261,7 +261,7 @@ def lookup_serial():
             }), 500
         
         try:
-            # Use the SQL Query API as specified by user (Note: 'Invoise_creation' is the correct SAP query name)
+            # Use the SQL Query API as specified by user (Note: SAP query name is 'Invoise_creation')
             url = f"{sap.base_url}/b1s/v1/SQLQueries('Invoise_creation')/List"
             payload = {
                 "ParamList": f"serial_number='{serial_number}'"

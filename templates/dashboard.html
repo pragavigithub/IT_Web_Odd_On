@@ -59,6 +59,17 @@
         </div>
     </div>
     {% endif %}
+
+    {% if current_user.has_permission('invoice_creation') %}
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card dashboard-card" data-url="{{ url_for('invoice_creation.index') }}">
+            <div class="card-body text-center">
+                <i data-feather="file-text" class="mb-3" style="width: 48px; height: 48px;"></i>
+                <p>Invoice Creation</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
     
 <!--    {% if current_user.has_permission('pick_list') %}-->
 <!--    <div class="col-md-3 col-sm-6 mb-3">-->

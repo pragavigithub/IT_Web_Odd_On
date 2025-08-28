@@ -4,7 +4,8 @@ Contains all models related to goods receipt against purchase orders
 """
 from app import db
 from datetime import datetime
-from modules.shared.models import User
+# User model imported from main models.py
+from models import User
 
 class GRPODocument(db.Model):
     """Main GRPO document header"""

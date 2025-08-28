@@ -249,5 +249,13 @@ from modules.serial_item_transfer.routes import serial_item_bp
 app.register_blueprint(transfer_bp)
 app.register_blueprint(serial_item_bp)
 
+# Register all modules - disabled temporarily to avoid conflicts
+# from modules.main_controller import register_modules
+# register_modules(app)
+
+# Register Invoice Creation module directly
+from modules.invoice_creation.routes import invoice_bp
+app.register_blueprint(invoice_bp)
+
 # Import routes to register them
 import routes

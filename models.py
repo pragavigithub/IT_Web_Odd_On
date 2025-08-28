@@ -60,7 +60,8 @@ class User(UserMixin, db.Model):
             'bin_scanning': False,
             'label_printing': False,
             'user_management': False,
-            'qc_dashboard': False
+            'qc_dashboard': False,
+            'invoice_creation': False  # New Invoice Creation module
         }
 
         if self.role == 'admin':
@@ -78,7 +79,8 @@ class User(UserMixin, db.Model):
                 'inventory_counting': True,
                 'bin_scanning': True,
                 'label_printing': True,
-                'user_management': True
+                'user_management': True,
+                'invoice_creation': True  # Allow managers access to Invoice Creation
             })
         elif self.role == 'qc':
             permissions.update({
@@ -96,7 +98,8 @@ class User(UserMixin, db.Model):
                 'pick_list': True,
                 'inventory_counting': True,
                 'bin_scanning': True,
-                'label_printing': True
+                'label_printing': True,
+                'invoice_creation': True  # Allow regular users access to Invoice Creation
             })
 
         return permissions

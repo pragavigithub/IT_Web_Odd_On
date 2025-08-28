@@ -340,7 +340,7 @@ function loadBusinessPartners() {
         customerSelect.append('<option value="manual">Enter Customer Code Manually</option>');
         
         $.ajax({
-            url: '/invoice_creation/api/business-partners',
+            url: '/api/business-partners',
             method: 'GET',
             timeout: 15000,
             success: function(response) {
@@ -378,7 +378,7 @@ function loadBusinessPartners() {
         showLoading('Validating serial number with SAP B1...');
 
         $.ajax({
-            url: '/invoice_creation/api/validate-serial-number',
+            url: '/api/validate-serial-number',
             method: 'GET',
             data: { serial_number: serialNumber },
             timeout: 15000,
@@ -848,6 +848,6 @@ function updateItemCountOld() {
             $('.alert').alert('close');
         }, 3000);
     }
-}
+
 </script>
 {% endblock %}

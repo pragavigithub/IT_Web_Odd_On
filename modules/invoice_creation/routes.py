@@ -280,15 +280,7 @@ def validate_serial_number():
             logging.error(f"❌ SAP validation failed: {str(e)} - using fallback validation")
             # Return fallback serial validation data on SAP error
             fallback_data = {
-                'ItemCode': 'MI Phone',
-                'ItemName': 'RAHUL PHONE',
-                'DistNumber': serial_number,
-                'WhsCode': '7000-FG',
-                'WhsName': 'Finished Goods GST-ORD DC CHN - Assigned to AVS',
-                'BPLName': 'ORD-CHENNAI',
-                'BPLid': 5,
-                'CardCode': 'CUS0028',
-                'CardName': 'RAHUL PHONE CUSTOMER'
+
             }
             return jsonify({
                 'success': True,
@@ -789,7 +781,7 @@ def post_to_sap_invoices(invoice_data):
             }
         
         # Post to SAP B1 Invoices endpoint as specified by user
-        url = "https://192.168.1.5:50000/b1s/v1/Invoices"
+        url = f"{sap.base_url}/b1s/v1/Invoices"
         
         logging.info(f"🚀 Posting to SAP B1 Invoices: {url}")
         logging.info(f"📤 Invoice payload: {invoice_data}")
@@ -886,18 +878,18 @@ def add_serial_item():
                         else:
                             # Use fallback data if not found in SAP
                             item_code = item_code or 'MI Phone'
-                            item_description = item_description or 'RAHUL PHONE'
-                            warehouse_code = warehouse_code or '7000-FG'
-                            customer_code = customer_code or 'CUS0028'
-                            customer_name = customer_name or 'RAHUL PHONE CUSTOMER'
+                            item_description = item_description or ''
+                            warehouse_code = warehouse_code or ''
+                            customer_code = customer_code or ''
+                            customer_name = customer_name or ''
             except Exception as e:
                 logging.warning(f"⚠️ Validation during add failed, using provided data: {e}")
                 # Use provided data or fallback
-                item_code = item_code or 'MI Phone'
-                item_description = item_description or 'RAHUL PHONE'
-                warehouse_code = warehouse_code or '7000-FG'
-                customer_code = customer_code or 'CUS0028'
-                customer_name = customer_name or 'RAHUL PHONE CUSTOMER'
+                item_code = item_code or ''
+                item_description = item_description or ''
+                warehouse_code = warehouse_code or ''
+                customer_code = customer_code or ''
+                customer_name = customer_name or ''
         
         # Create item data structure
         item_data = {

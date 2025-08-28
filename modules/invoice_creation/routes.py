@@ -116,11 +116,7 @@ def get_business_partners():
             logging.warning("⚠️ SAP B1 configuration missing - returning fallback customers")
             # Return fallback customer data for offline mode
             fallback_customers = [
-                {"CardCode": "CUS0071", "CardName": "FORD MOTOR COMPANY"},
-                {"CardCode": "SMDES", "CardName": "S.M.D Engg. Services"},
-                {"CardCode": "3D SEALS", "CardName": "3D SEALS PRIVATE LIMITED"},
-                {"CardCode": "MAHINDRA", "CardName": "MAHINDRA & MAHINDRA LTD"},
-                {"CardCode": "TATA", "CardName": "TATA MOTORS LIMITED"}
+
             ]
             return jsonify({
                 'success': True,
@@ -131,9 +127,7 @@ def get_business_partners():
         if not sap.ensure_logged_in():
             logging.error("❌ SAP login failed - returning fallback customers")
             fallback_customers = [
-                {"CardCode": "CUS0071", "CardName": "FORD MOTOR COMPANY"},
-                {"CardCode": "SMDES", "CardName": "S.M.D Engg. Services"},
-                {"CardCode": "3D SEALS", "CardName": "3D SEALS PRIVATE LIMITED"}
+
             ]
             return jsonify({
                 'success': True,
@@ -142,7 +136,7 @@ def get_business_partners():
             })
         
         try:
-            url = f"{sap.base_url}/b1s/v1/BusinessPartners?$filter=CardType eq 'cCustomer'&$select=CardCode,CardName&$top=50"
+            url = f"{sap.base_url}/b1s/v1/BusinessPartners?$select=CardCode,CardName"
             logging.info(f"🌐 SAP API URL: {url}")
             response = sap.session.get(url, timeout=10)
             
@@ -159,8 +153,7 @@ def get_business_partners():
                 logging.error(f"❌ SAP API error: {response.status_code} - {response.text}")
                 # Return fallback on API error
                 fallback_customers = [
-                    {"CardCode": "CUS0071", "CardName": "FORD MOTOR COMPANY"},
-                    {"CardCode": "SMDES", "CardName": "S.M.D Engg. Services"}
+
                 ]
                 return jsonify({
                     'success': True,
@@ -171,8 +164,7 @@ def get_business_partners():
         except Exception as e:
             logging.error(f"❌ SAP request failed: {str(e)}")
             fallback_customers = [
-                {"CardCode": "CUS0071", "CardName": "FORD MOTOR COMPANY"},
-                {"CardCode": "SMDES", "CardName": "S.M.D Engg. Services"}
+
             ]
             return jsonify({
                 'success': True,
@@ -208,17 +200,7 @@ def validate_serial_number():
             logging.warning("⚠️ SAP B1 configuration missing - using fallback validation")
             # Return fallback serial validation data for offline mode
             fallback_data = {
-                'ItemCode': f'ITEM_{serial_number[:5]}',
-                'ItemName': f'Test Item for Serial {serial_number}',
-                'DistNumber': serial_number,
-                'WhsCode': 'WH01',
-                'WhsName': 'Main Warehouse',
-                'BPLName': 'Main Branch',
-                'BPLid': '1',
-                'CardCode': 'CUS0071',
-                'CardName': 'FORD MOTOR COMPANY',
-                'CustomerCode': 'CUS0071',
-                'CustomerName': 'FORD MOTOR COMPANY'
+
             }
             return jsonify({
                 'success': True,
@@ -230,17 +212,7 @@ def validate_serial_number():
             logging.error("❌ SAP login failed - using fallback validation")
             # Return fallback serial validation data for offline mode
             fallback_data = {
-                'ItemCode': f'ITEM_{serial_number[:5]}',
-                'ItemName': f'Test Item for Serial {serial_number}',
-                'DistNumber': serial_number,
-                'WhsCode': 'WH01',
-                'WhsName': 'Main Warehouse',
-                'BPLName': 'Main Branch',
-                'BPLid': '1',
-                'CardCode': 'SMDES',
-                'CardName': 'S.M.D Engg. Services',
-                'CustomerCode': 'SMDES',
-                'CustomerName': 'S.M.D Engg. Services'
+
             }
             return jsonify({
                 'success': True,
@@ -295,17 +267,7 @@ def validate_serial_number():
             logging.error(f"❌ SAP validation failed: {str(e)} - using fallback validation")
             # Return fallback serial validation data on SAP error
             fallback_data = {
-                'ItemCode': f'ITEM_{serial_number[:5]}',
-                'ItemName': f'Test Item for Serial {serial_number}',
-                'DistNumber': serial_number,
-                'WhsCode': 'WH01',
-                'WhsName': 'Main Warehouse',
-                'BPLName': 'Main Branch',
-                'BPLid': '1',
-                'CardCode': '3D SEALS',
-                'CardName': '3D SEALS PRIVATE LIMITED',
-                'CustomerCode': '3D SEALS',
-                'CustomerName': '3D SEALS PRIVATE LIMITED'
+
             }
             return jsonify({
                 'success': True,

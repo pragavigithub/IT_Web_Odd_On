@@ -62,7 +62,7 @@ def get_business_partners():
         try:
             # Get all business partners with proper header for unlimited results
             url = f"{sap.base_url}/b1s/v1/BusinessPartners?$select=CardCode,CardName"
-            headers = {"Prefer": "odata.maxpagesize=0"}
+            headers = {"Prefer": "odata.pagemaxsize=0"}
             response = sap.session.get(url, headers=headers, timeout=30)
             
             if response.status_code == 200:
@@ -112,7 +112,7 @@ def validate_serial_number():
         
         try:
             # Use SAP SQL Query for Invoice Creation serial number validation
-            url = f"{sap.base_url}/b1s/v1/SQLQueries('Invoice_creation')/List"
+            url = f"{sap.base_url}/b1s/v1/SQLQueries('Invoise_creation')/List"
             payload = {
                 "ParamList": f"serial_number='{serial_number}'"
             }

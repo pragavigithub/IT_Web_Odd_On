@@ -142,7 +142,7 @@ def get_business_partners():
             
             if response.status_code == 200:
                 data = response.json()
-                print(f"transfer_item (repr) --> {repr(data)}")
+
                 business_partners = data.get('value', [])
                 logging.info(f"✅ Retrieved {len(business_partners)} business partners from SAP")
                 return jsonify({
@@ -223,17 +223,17 @@ def validate_serial_number():
         
         try:
             # Use SAP SQL Query for Invoice Creation serial number validation (Note: SAP query name is 'Invoice_creation')
-            url = f"{sap.base_url}/b1s/v1/SQLQueries('Invoice_creation')/List"
+            url = f"{sap.base_url}/b1s/v1/SQLQueries('Invoise_creation')/List"
             payload = {
                 "ParamList": f"serial_number='{serial_number}'"
             }
             
             response = sap.session.post(url, json=payload, timeout=30)
-            
+
             if response.status_code == 200:
                 data = response.json()
                 results = data.get('value', [])
-                
+                print(f"transfer_item (repr) --> {repr(data)}")
                 if results:
                     # Return the first result with item details AND customer information
                     item_data = results[0]

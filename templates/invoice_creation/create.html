@@ -224,6 +224,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Global variables
 let currentInvoiceId = null;
 let currentLine = 1;
+let serialNumbers = [];
 
 function initializeInvoiceCreation() {
     console.log('Initializing Invoice Creation functionality');
@@ -340,9 +341,12 @@ function loadBusinessPartners() {
         customerSelect.append('<option value="manual">Enter Customer Code Manually</option>');
         
         $.ajax({
-            url: '/api/business-partners',
+            url: '/invoice_creation/api/business-partners',
             method: 'GET',
             timeout: 15000,
+            xhrFields: {
+                withCredentials: true
+            },
             success: function(response) {
                 console.log('Business partners response:', response);
                 if (response.success && response.business_partners) {
@@ -378,10 +382,13 @@ function loadBusinessPartners() {
         showLoading('Validating serial number with SAP B1...');
 
         $.ajax({
-            url: '/api/validate-serial-number',
+            url: '/invoice_creation/api/validate-serial-number',
             method: 'GET',
             data: { serial_number: serialNumber },
             timeout: 15000,
+            xhrFields: {
+                withCredentials: true
+            },
             success: function(response) {
                 hideLoading();
                 console.log('Serial validation response:', response);

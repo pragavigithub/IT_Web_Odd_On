@@ -1,106 +1,164 @@
 {% extends "base.html" %}
 
-{% block title %}Create Invoice - {{ super() }}{% endblock %}
+{% block title %}Invoice Creation - {{ super() }}{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2>Create New Invoice</h2>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="h4 mb-0">Invoice Creation</h2>
+                    <p class="text-muted mb-0">Create invoice using serial number validation</p>
+                </div>
                 <a href="{{ url_for('invoice_creation.index') }}" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left"></i> Back to Invoices
+                    <i data-feather="arrow-left"></i> Back to Invoices
                 </a>
             </div>
+        </div>
+    </div>
 
-            <div class="row">
-                <div class="col-md-8">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">Invoice Details</h5>
-                        </div>
-                        <div class="card-body">
-                            <form id="invoiceForm">
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label for="customerCode">Customer Code <span class="text-danger">*</span></label>
-                                            <select class="form-control" id="customerCode" name="customer_code" required>
-                                                <option value="">Select Customer...</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label for="invoiceDate">Invoice Date</label>
-                                            <input type="date" class="form-control" id="invoiceDate" name="invoice_date" 
-                                                   readonly>
-                                        </div>
-                                    </div>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-
-                    <div class="card mt-4">
-                        <div class="card-header">
-                            <h5 class="mb-0">Serial Numbers</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="form-group">
-                                <label for="serialNumberInput">Enter Serial Number</label>
-                                <div class="input-group">
-                                    <input type="text" class="form-control" id="serialNumberInput" 
-                                           placeholder="Enter serial number and press Tab to auto-fetch details">
-                                    <div class="input-group-append">
-                                        <button class="btn btn-primary" type="button" id="addSerialBtn">
-                                            <i class="fas fa-plus"></i> Add
-                                        </button>
-                                    </div>
+    <!-- Main Form Row -->
+    <div class="row mb-4">
+        <!-- Invoice Details Section -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <h5 class="mb-0"><i data-feather="file-text"></i> Invoice Details</h5>
+                </div>
+                <div class="card-body">
+                    <form id="invoiceForm" method="POST">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="customerCode">Customer Code <span class="text-danger">*</span></label>
+                                    <select class="form-control" id="customerCode" name="customer_code" required>
+                                        <option value="">Select Customer...</option>
+                                    </select>
                                 </div>
                             </div>
-
-                            <div id="serialNumbersList" class="mt-3">
-                                <!-- Serial numbers will be added here dynamically -->
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="invoiceDate">Invoice Date</label>
+                                    <input type="date" class="form-control" id="invoiceDate" name="invoice_date" readonly>
+                                </div>
                             </div>
                         </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Serial Items Section -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i data-feather="plus-square"></i> Add Serial Items</h5>
+                        <small class="badge badge-light">Line by Line Entry</small>
                     </div>
                 </div>
-
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">Invoice Summary</h5>
-                        </div>
-                        <div class="card-body">
-                            <div id="invoiceSummary">
-                                <p class="text-muted">Add serial numbers to see invoice summary</p>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label for="serialNumberInput">Line <span id="currentLineDisplay">1</span> &nbsp;&nbsp;&nbsp; Serial Number</label>
+                        <div class="d-flex align-items-center">
+                            <div class="serial-line-number bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 30px; height: 30px; min-width: 30px;">
+                                <span id="currentLineNumber">1</span>
                             </div>
-                            
-                            <hr>
-                            
-                            <button type="button" class="btn btn-success btn-block" id="createInvoiceBtn" disabled>
-                                <i class="fas fa-file-invoice"></i> Create Invoice
-                            </button>
+                            <input type="text" class="form-control mr-2" id="serialNumberInput" 
+                                   placeholder="Enter serial number and press Tab/Enter">
                         </div>
                     </div>
-
-                    <div class="card mt-3">
-                        <div class="card-header">
-                            <h6 class="mb-0">Instructions</h6>
-                        </div>
-                        <div class="card-body">
-                            <ol class="small">
-                                <li>Select a customer from the dropdown</li>
-                                <li>Enter serial number and press <kbd>Tab</kbd> to auto-fetch details</li>
-                                <li>Press <kbd>Enter</kbd> to add the serial number</li>
-                                <li>System will automatically group items</li>
-                                <li>Review the summary and create invoice</li>
-                            </ol>
-                        </div>
+                    
+                    <div class="d-flex justify-content-between mt-3">
+                        <button type="button" class="btn btn-outline-secondary" id="clearAllBtn">
+                            <i data-feather="trash-2"></i> Clear All
+                        </button>
+                        <button type="button" class="btn btn-info" id="aboutAddingBtn">
+                            <i data-feather="info"></i> About Real-time Adding
+                        </button>
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Serial Items Table -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i data-feather="list"></i> Serial Items</h5>
+                        <span class="badge badge-light" id="itemCount">0 Items</span>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-striped mb-0" id="serialItemsTable">
+                            <thead style="background-color: #f8f9fa;">
+                                <tr>
+                                    <th style="width: 60px;">Line</th>
+                                    <th style="width: 120px;">Serial Number</th>
+                                    <th style="width: 120px;">Item Code</th>
+                                    <th>Item Description</th>
+                                    <th style="width: 100px;">From WH</th>
+                                    <th style="width: 100px;">To WH</th>
+                                    <th style="width: 100px;">Validation</th>
+                                    <th style="width: 60px;">Qty</th>
+                                    <th style="width: 100px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="serialItemsBody">
+                                <!-- Items will be added here dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="noItemsMessage" class="text-center py-5 text-muted">
+                        <i data-feather="inbox" style="width: 48px; height: 48px;"></i>
+                        <p class="mt-2 mb-0">No serial items added yet</p>
+                        <small>Enter serial numbers above to start building the invoice</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h2 class="card-title mb-0" id="validatedCount">0</h2>
+                    <p class="card-text mb-0">Validated Items</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-danger text-white">
+                <div class="card-body text-center">
+                    <h2 class="card-title mb-0" id="failedCount">0</h2>
+                    <p class="card-text mb-0">Failed Items</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <h2 class="card-title mb-0" id="totalCount">0</h2>
+                    <p class="card-text mb-0">Total Items</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Submit Button -->
+    <div class="row">
+        <div class="col-12 text-center">
+            <button type="button" class="btn btn-primary btn-lg" id="submitForQCBtn" disabled>
+                <i data-feather="check-circle"></i> Submit for QC Approval
+            </button>
         </div>
     </div>
 </div>
@@ -121,6 +179,33 @@
     </div>
 </div>
 
+<!-- About Modal -->
+<div class="modal fade" id="aboutModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">About Real-time Adding</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <h6><i data-feather="info"></i> How the system works:</h6>
+                <ul class="list-unstyled">
+                    <li><i data-feather="arrow-right"></i> Enter a serial number in the input field</li>
+                    <li><i data-feather="arrow-right"></i> Press <kbd>Tab</kbd> to validate and auto-fetch details from SAP</li>
+                    <li><i data-feather="arrow-right"></i> Press <kbd>Enter</kbd> to add the validated item to the invoice</li>
+                    <li><i data-feather="arrow-right"></i> Items are automatically validated against SAP B1 inventory</li>
+                    <li><i data-feather="arrow-right"></i> Review the summary before submitting for QC approval</li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 // Debug function to check if jQuery is loaded
 console.log('Invoice Creation page loaded');
@@ -130,6 +215,7 @@ $(document).ready(function() {
     console.log('jQuery document ready executed');
     let serialNumbers = [];
     let serialLookupData = {};
+    let currentLine = 1;
 
     // Set current date
     const today = new Date();
@@ -137,8 +223,9 @@ $(document).ready(function() {
 
     // Load business partners on page load
     loadBusinessPartners();
+    updateItemCount();
 
-    // Serial number input handling
+    // Event handlers
     $('#serialNumberInput').on('keydown', function(e) {
         if (e.which === 9) { // Tab key
             e.preventDefault();
@@ -149,8 +236,11 @@ $(document).ready(function() {
         }
     });
 
-    $('#addSerialBtn').on('click', addSerialNumber);
-    $('#createInvoiceBtn').on('click', createInvoice);
+    $('#clearAllBtn').on('click', clearAllItems);
+    $('#aboutAddingBtn').on('click', function() {
+        $('#aboutModal').modal('show');
+    });
+    $('#submitForQCBtn').on('click', submitInvoice);
 
     function loadBusinessPartners() {
         console.log('Loading business partners...');
@@ -195,7 +285,7 @@ $(document).ready(function() {
         }
 
         console.log('Fetching details for serial number:', serialNumber);
-        showLoading('Fetching serial number details from SAP...');
+        showLoading('Validating serial number with SAP B1...');
 
         $.ajax({
             url: '/invoice_creation/api/validate-serial-number',
@@ -207,245 +297,234 @@ $(document).ready(function() {
                 console.log('Serial validation response:', response);
                 
                 if (response.success && response.item_data) {
-                    // Display item details below the input
-                    let itemData = response.item_data;
-                    let detailsHtml = `
-                        <div class="alert alert-info mt-2" id="serialDetails">
-                            <h6><i class="fas fa-info-circle"></i> Serial Number Details Found:</h6>
-                            <p class="mb-1"><strong>Item Code:</strong> ${itemData.ItemCode}</p>
-                            <p class="mb-1"><strong>Item Name:</strong> ${itemData.ItemName}</p>
-                            <p class="mb-1"><strong>Warehouse:</strong> ${itemData.WhsCode} - ${itemData.WhsName}</p>
-                            <p class="mb-0"><strong>Branch:</strong> ${itemData.BPLName}</p>
-                            <small class="text-muted">Press Enter to add this item to invoice</small>
-                        </div>
-                    `;
+                    // Store the validated data for adding
+                    window.currentSerialData = response.item_data;
+                    window.currentSerialData.serialNumber = serialNumber;
+                    console.log('Serial data validated and stored:', response.item_data);
                     
-                    // Remove existing details and add new ones
-                    $('#serialDetails').remove();
-                    $('#serialNumberInput').closest('.form-group').append(detailsHtml);
-                    
-                    // Store the fetched data for later use
-                    window.currentSerialData = itemData;
-                    console.log('Serial data stored:', itemData);
+                    // Show success message
+                    showTemporaryMessage(`Serial number "${serialNumber}" validated successfully! Press Enter to add.`, 'success');
                 } else {
                     console.warn('Serial number not found:', response.error || 'Unknown error');
-                    let errorHtml = `
-                        <div class="alert alert-warning mt-2" id="serialDetails">
-                            <h6><i class="fas fa-exclamation-triangle"></i> Serial Number Not Found</h6>
-                            <p class="mb-0">Serial number "${serialNumber}" was not found in SAP or has no available quantity.</p>
-                            <small class="text-muted">Please verify the serial number</small>
-                        </div>
-                    `;
-                    $('#serialDetails').remove();
-                    $('#serialNumberInput').closest('.form-group').append(errorHtml);
+                    showTemporaryMessage(`Serial number "${serialNumber}" not found in SAP B1 inventory.`, 'warning');
+                    window.currentSerialData = null;
                 }
             },
             error: function(xhr, status, error) {
                 hideLoading();
                 console.error('Serial validation error:', error, xhr.responseJSON);
-                
-                let errorMessage = 'SAP connection failed';
-                if (xhr.responseJSON && xhr.responseJSON.error) {
-                    errorMessage = xhr.responseJSON.error;
-                }
-                
-                let errorHtml = `
-                    <div class="alert alert-danger mt-2" id="serialDetails">
-                        <h6><i class="fas fa-exclamation-circle"></i> Connection Error</h6>
-                        <p class="mb-0">${errorMessage}</p>
-                        <small class="text-muted">Check SAP connection and try again</small>
-                    </div>
-                `;
-                $('#serialDetails').remove();
-                $('#serialNumberInput').closest('.form-group').append(errorHtml);
+                showTemporaryMessage('SAP B1 connection failed. Please try again.', 'danger');
+                window.currentSerialData = null;
             }
         });
     }
 
     function addSerialNumber() {
         let serialNumber = $('#serialNumberInput').val().trim();
-        if (!serialNumber) {
-            alert('Please enter a serial number');
-            return;
-        }
-
-        if (serialNumbers.includes(serialNumber)) {
-            alert('Serial number already added');
-            return;
-        }
-
-        showLoading('Looking up serial number...');
-
-        // Use pre-fetched data if available, otherwise fetch it
-        if (window.currentSerialData && window.currentSerialData.DistNumber === serialNumber) {
-            // Use the already fetched data
-            serialNumbers.push(serialNumber);
-            serialLookupData[serialNumber] = window.currentSerialData;
-            $('#serialNumberInput').val('');
-            $('#serialDetails').remove();
-            updateSerialNumbersList();
-            updateInvoiceSummary();
-            window.currentSerialData = null; // Clear the stored data
-        } else {
-            // Fetch data first
-            $.ajax({
-                url: '/invoice_creation/api/validate-serial-number',
-                method: 'GET',
-                data: { serial_number: serialNumber },
-                success: function(response) {
-                    hideLoading();
-                    if (response.success) {
-                        serialNumbers.push(serialNumber);
-                        serialLookupData[serialNumber] = response.item_data;
-                        $('#serialNumberInput').val('');
-                        $('#serialDetails').remove();
-                        updateSerialNumbersList();
-                        updateInvoiceSummary();
-                    } else {
-                        alert('Error: ' + response.error);
-                    }
-                },
-                error: function(xhr, status, error) {
-                    hideLoading();
-                    let errorMessage = 'Error validating serial number';
-                    if (xhr.responseJSON && xhr.responseJSON.error) {
-                        errorMessage = xhr.responseJSON.error;
-                    }
-                    alert(errorMessage);
-                }
-            });
-        }
-    }
-
-    function removeSerialNumber(serialNumber) {
-        let index = serialNumbers.indexOf(serialNumber);
-        if (index > -1) {
-            serialNumbers.splice(index, 1);
-            delete serialLookupData[serialNumber];
-            updateSerialNumbersList();
-            updateInvoiceSummary();
-        }
-    }
-
-    function updateSerialNumbersList() {
-        let html = '';
-        serialNumbers.forEach(function(serialNumber) {
-            let data = serialLookupData[serialNumber];
-            html += `
-                <div class="border rounded p-2 mb-2">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <strong>${serialNumber}</strong><br>
-                            <small class="text-muted">${data.ItemCode} - ${data.itemName}</small><br>
-                            <small class="text-muted">${data.WhsCode} - ${data.WhsName}</small>
-                        </div>
-                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeSerialNumber('${serialNumber}')">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
-        });
-
-        if (html === '') {
-            html = '<p class="text-muted">No serial numbers added yet</p>';
-        }
-
-        $('#serialNumbersList').html(html);
-    }
-
-    function updateInvoiceSummary() {
-        if (serialNumbers.length === 0) {
-            $('#invoiceSummary').html('<p class="text-muted">Add serial numbers to see invoice summary</p>');
-            $('#createInvoiceBtn').prop('disabled', true);
-            return;
-        }
-
-        // Group by item code
-        let items = {};
-        serialNumbers.forEach(function(serialNumber) {
-            let data = serialLookupData[serialNumber];
-            let key = data.ItemCode;
-            if (!items[key]) {
-                items[key] = {
-                    code: data.ItemCode,
-                    name: data.itemName,
-                    warehouse: data.WhsCode,
-                    quantity: 0,
-                    serials: []
-                };
-            }
-            items[key].quantity++;
-            items[key].serials.push(serialNumber);
-        });
-
-        let html = '<h6>Items Summary:</h6>';
-        Object.values(items).forEach(function(item) {
-            html += `
-                <div class="mb-2">
-                    <strong>${item.code}</strong><br>
-                    <small>${item.name}</small><br>
-                    <small class="text-muted">Warehouse: ${item.warehouse}</small><br>
-                    <small class="text-muted">Quantity: ${item.quantity}</small>
-                </div>
-                <hr>
-            `;
-        });
-
-        html += `<p><strong>Total Serial Numbers: ${serialNumbers.length}</strong></p>`;
-
-        $('#invoiceSummary').html(html);
         
-        // Enable create button if customer and serials are selected
-        let customerSelected = $('#customerCode').val();
-        $('#createInvoiceBtn').prop('disabled', !customerSelected || serialNumbers.length === 0);
+        if (!serialNumber) {
+            showTemporaryMessage('Please enter a serial number first.', 'warning');
+            return;
+        }
+
+        // Check if serial number already exists
+        if (serialNumbers.some(item => item.serialNumber === serialNumber)) {
+            showTemporaryMessage('Serial number already added to this invoice.', 'warning');
+            return;
+        }
+
+        let itemData = window.currentSerialData;
+        
+        if (itemData) {
+            // Add validated item
+            serialNumbers.push({
+                line: currentLine,
+                serialNumber: serialNumber,
+                itemCode: itemData.ItemCode,
+                itemName: itemData.ItemName,
+                fromWH: itemData.WhsCode,
+                toWH: '', // Empty for invoice
+                validation: 'Valid',
+                qty: 1,
+                status: 'validated'
+            });
+            console.log('Added validated serial number:', serialNumber);
+        } else {
+            // Add unvalidated item
+            serialNumbers.push({
+                line: currentLine,
+                serialNumber: serialNumber,
+                itemCode: 'N/A',
+                itemName: 'Validation Failed',
+                fromWH: 'N/A',
+                toWH: 'N/A',
+                validation: 'Failed',
+                qty: 0,
+                status: 'failed'
+            });
+            console.log('Added failed serial number:', serialNumber);
+        }
+
+        updateSerialItemsTable();
+        updateSummaryCards();
+        updateItemCount();
+        
+        // Clear input and move to next line
+        $('#serialNumberInput').val('');
+        currentLine++;
+        $('#currentLineNumber').text(currentLine);
+        $('#currentLineDisplay').text(currentLine);
+        window.currentSerialData = null;
+        
+        // Enable submit button if there are validated items
+        const hasValidItems = serialNumbers.some(item => item.status === 'validated');
+        $('#submitForQCBtn').prop('disabled', !hasValidItems);
     }
 
-    $('#customerCode').on('change', function() {
-        updateInvoiceSummary();
-    });
-
-    function createInvoice() {
-        let customerCode = $('#customerCode').val();
-        if (!customerCode) {
-            alert('Please select a customer');
-            return;
-        }
-
+    function updateSerialItemsTable() {
+        const tbody = $('#serialItemsBody');
+        const noItemsMessage = $('#noItemsMessage');
+        
         if (serialNumbers.length === 0) {
-            alert('Please add at least one serial number');
+            tbody.empty();
+            noItemsMessage.show();
             return;
         }
+        
+        noItemsMessage.hide();
+        tbody.empty();
+        
+        serialNumbers.forEach(function(item, index) {
+            const validationBadge = item.status === 'validated' ? 
+                '<span class="badge badge-success">Valid</span>' : 
+                '<span class="badge badge-danger">Failed</span>';
+            
+            const row = `
+                <tr>
+                    <td>${item.line}</td>
+                    <td>${item.serialNumber}</td>
+                    <td>${item.itemCode}</td>
+                    <td>${item.itemName}</td>
+                    <td>${item.fromWH}</td>
+                    <td>${item.toWH}</td>
+                    <td>${validationBadge}</td>
+                    <td>${item.qty}</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" onclick="removeSerial(${index})">
+                            <i data-feather="trash-2"></i> Delete
+                        </button>
+                    </td>
+                </tr>
+            `;
+            tbody.append(row);
+        });
+        
+        // Re-initialize feather icons
+        feather.replace();
+    }
 
-        showLoading('Creating invoice...');
+    function updateSummaryCards() {
+        const validatedItems = serialNumbers.filter(item => item.status === 'validated').length;
+        const failedItems = serialNumbers.filter(item => item.status === 'failed').length;
+        const totalItems = serialNumbers.length;
+        
+        $('#validatedCount').text(validatedItems);
+        $('#failedCount').text(failedItems);
+        $('#totalCount').text(totalItems);
+    }
 
+    function updateItemCount() {
+        $('#itemCount').text(serialNumbers.length + ' Items');
+    }
+
+    function clearAllItems() {
+        if (serialNumbers.length === 0) {
+            showTemporaryMessage('No items to clear.', 'info');
+            return;
+        }
+        
+        if (confirm('Are you sure you want to clear all serial items?')) {
+            serialNumbers = [];
+            currentLine = 1;
+            $('#currentLineNumber').text(currentLine);
+            $('#currentLineDisplay').text(currentLine);
+            $('#serialNumberInput').val('');
+            
+            updateSerialItemsTable();
+            updateSummaryCards();
+            updateItemCount();
+            
+            $('#submitForQCBtn').prop('disabled', true);
+            showTemporaryMessage('All items cleared.', 'info');
+        }
+    }
+
+    function submitInvoice() {
+        const customerCode = $('#customerCode').val();
+        const invoiceDate = $('#invoiceDate').val();
+        
+        if (!customerCode) {
+            showTemporaryMessage('Please select a customer first.', 'warning');
+            return;
+        }
+        
+        const validatedItems = serialNumbers.filter(item => item.status === 'validated');
+        if (validatedItems.length === 0) {
+            showTemporaryMessage('Please add at least one validated serial number.', 'warning');
+            return;
+        }
+        
+        const invoiceData = {
+            customer_code: customerCode,
+            invoice_date: invoiceDate,
+            serial_items: validatedItems.map(item => ({
+                serial_number: item.serialNumber,
+                item_code: item.itemCode,
+                item_name: item.itemName,
+                warehouse: item.fromWH,
+                quantity: item.qty
+            }))
+        };
+        
+        console.log('Submitting invoice:', invoiceData);
+        showLoading('Creating invoice document...');
+        
         $.ajax({
-            url: '/invoice_creation/api/create_invoice',
+            url: '/invoice_creation/create',
             method: 'POST',
             contentType: 'application/json',
-            data: JSON.stringify({
-                customer_code: customerCode,
-                serial_numbers: serialNumbers
-            }),
+            data: JSON.stringify(invoiceData),
             success: function(response) {
                 hideLoading();
                 if (response.success) {
-                    alert('Invoice created successfully! Invoice #: ' + response.sap_doc_num);
-                    window.location.href = '/invoice_creation/detail/' + response.invoice_id;
+                    showTemporaryMessage('Invoice created successfully!', 'success');
+                    setTimeout(function() {
+                        window.location.href = '/invoice_creation/';
+                    }, 2000);
                 } else {
-                    alert('Error creating invoice: ' + response.message);
+                    showTemporaryMessage('Failed to create invoice: ' + response.error, 'danger');
                 }
             },
             error: function(xhr, status, error) {
                 hideLoading();
-                let errorMessage = 'Error creating invoice';
-                if (xhr.responseJSON && xhr.responseJSON.message) {
-                    errorMessage = xhr.responseJSON.message;
-                }
-                alert(errorMessage);
+                console.error('Invoice creation error:', error);
+                showTemporaryMessage('Error creating invoice: ' + error, 'danger');
             }
         });
     }
+
+    // Global function for removing serial numbers
+    window.removeSerial = function(index) {
+        if (confirm('Are you sure you want to remove this serial number?')) {
+            serialNumbers.splice(index, 1);
+            updateSerialItemsTable();
+            updateSummaryCards();
+            updateItemCount();
+            
+            const hasValidItems = serialNumbers.some(item => item.status === 'validated');
+            $('#submitForQCBtn').prop('disabled', !hasValidItems);
+        }
+    };
 
     function showLoading(message) {
         $('#loadingMessage').text(message);
@@ -456,8 +535,24 @@ $(document).ready(function() {
         $('#loadingModal').modal('hide');
     }
 
-    // Make functions global for onclick handlers
-    window.removeSerialNumber = removeSerialNumber;
+    function showTemporaryMessage(message, type) {
+        const alertClass = `alert-${type}`;
+        const alertHtml = `
+            <div class="alert ${alertClass} alert-dismissible fade show" role="alert" style="position: fixed; top: 20px; right: 20px; z-index: 9999;">
+                ${message}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        `;
+        
+        $('body').append(alertHtml);
+        
+        // Auto-dismiss after 3 seconds
+        setTimeout(function() {
+            $('.alert').alert('close');
+        }, 3000);
+    }
 });
 </script>
 {% endblock %}

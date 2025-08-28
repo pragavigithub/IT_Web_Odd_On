@@ -24,13 +24,71 @@ def index():
     invoices = InvoiceDocument.query.filter_by(user_id=current_user.id).order_by(InvoiceDocument.created_at.desc()).all()
     return render_template('invoice_creation/index.html', invoices=invoices)
 
-@invoice_bp.route('/create')
+@invoice_bp.route('/create', methods=['GET', 'POST'])
 @login_required
 def create():
-    """Create new invoice page"""
+    """Create new invoice page and handle creation"""
     if not current_user.has_permission('invoice_creation'):
         flash('Access denied - Invoice Creation permissions required', 'error')
         return redirect(url_for('dashboard'))
+    
+    if request.method == 'POST':
+        try:
+            # Handle JSON data from the new interface
+            if request.is_json:
+                data = request.get_json()
+                customer_code = data.get('customer_code')
+                invoice_date = data.get('invoice_date')
+                serial_items = data.get('serial_items', [])
+                
+                if not customer_code:
+                    return jsonify({'success': False, 'error': 'Please select a customer'}), 400
+                
+                if not serial_items:
+                    return jsonify({'success': False, 'error': 'Please add at least one serial item'}), 400
+                
+                # Create invoice document
+                invoice = InvoiceDocument(
+                    user_id=current_user.id,
+                    customer_code=customer_code,
+                    invoice_date=datetime.strptime(invoice_date, '%Y-%m-%d').date() if invoice_date else datetime.now().date(),
+                    status='draft',
+                    total_amount=0.0
+                )
+                
+                db.session.add(invoice)
+                db.session.flush()  # Get the invoice ID
+                
+                # Add invoice items
+                total_amount = 0.0
+                for item_data in serial_items:
+                    # Store serial number lookup data first
+                    serial_lookup = SerialNumberLookup(
+                        invoice_id=invoice.id,
+                        serial_number=item_data.get('serial_number'),
+                        item_code=item_data.get('item_code'),
+                        item_name=item_data.get('item_name'),
+                        warehouse=item_data.get('warehouse'),
+                        validation_status='validated',
+                        sap_response=json.dumps(item_data)
+                    )
+                    db.session.add(serial_lookup)
+                
+                db.session.commit()
+                
+                return jsonify({
+                    'success': True, 
+                    'message': 'Invoice created successfully',
+                    'invoice_id': invoice.id
+                })
+                
+        except Exception as e:
+            db.session.rollback()
+            logging.error(f"Error creating invoice: {str(e)}")
+            if request.is_json:
+                return jsonify({'success': False, 'error': f'Error creating invoice: {str(e)}'}), 500
+            else:
+                flash(f'Error creating invoice: {str(e)}', 'error')
     
     return render_template('invoice_creation/create.html')
 

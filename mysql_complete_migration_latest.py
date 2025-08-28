@@ -526,6 +526,103 @@ class MySQLMigration:
                     INDEX idx_batch_number (batch_number),
                     INDEX idx_warehouse_code (warehouse_code)
                 )
+            ''',
+            
+            # 16. Invoice Documents (Invoice Creation Module)
+            'invoice_documents': '''
+                CREATE TABLE IF NOT EXISTS invoice_documents (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    invoice_number VARCHAR(50) UNIQUE,
+                    customer_code VARCHAR(50) NOT NULL,
+                    customer_name VARCHAR(200),
+                    branch_id VARCHAR(10),
+                    branch_name VARCHAR(100),
+                    user_id INT NOT NULL,
+                    status VARCHAR(20) DEFAULT 'draft',
+                    doc_date DATE,
+                    due_date DATE,
+                    total_amount DECIMAL(15,2),
+                    sap_doc_entry INT,
+                    sap_doc_num VARCHAR(50),
+                    notes TEXT,
+                    json_payload JSON,
+                    sap_response TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
+                    INDEX idx_invoice_number (invoice_number),
+                    INDEX idx_customer_code (customer_code),
+                    INDEX idx_status (status),
+                    INDEX idx_user_id (user_id),
+                    INDEX idx_branch_id (branch_id),
+                    INDEX idx_doc_date (doc_date),
+                    INDEX idx_sap_doc_entry (sap_doc_entry),
+                    INDEX idx_created_at (created_at)
+                )
+            ''',
+            
+            # 17. Invoice Lines
+            'invoice_lines': '''
+                CREATE TABLE IF NOT EXISTS invoice_lines (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    invoice_id INT NOT NULL,
+                    line_number INT NOT NULL,
+                    item_code VARCHAR(50) NOT NULL,
+                    item_description VARCHAR(200),
+                    quantity INT NOT NULL DEFAULT 1,
+                    warehouse_code VARCHAR(10) NOT NULL,
+                    tax_code VARCHAR(10) DEFAULT 'GST18',
+                    unit_price DECIMAL(15,2),
+                    line_total DECIMAL(15,2),
+                    discount_percent DECIMAL(5,2) DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (invoice_id) REFERENCES invoice_documents(id) ON DELETE CASCADE,
+                    UNIQUE KEY unique_line_per_invoice (invoice_id, line_number),
+                    INDEX idx_invoice_id (invoice_id),
+                    INDEX idx_item_code (item_code),
+                    INDEX idx_warehouse_code (warehouse_code),
+                    INDEX idx_line_number (line_number)
+                )
+            ''',
+            
+            # 18. Invoice Serial Numbers
+            'invoice_serial_numbers': '''
+                CREATE TABLE IF NOT EXISTS invoice_serial_numbers (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    invoice_line_id INT NOT NULL,
+                    serial_number VARCHAR(100) NOT NULL,
+                    item_code VARCHAR(50) NOT NULL,
+                    warehouse_code VARCHAR(10) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (invoice_line_id) REFERENCES invoice_lines(id) ON DELETE CASCADE,
+                    UNIQUE KEY unique_serial_per_line (invoice_line_id, serial_number),
+                    INDEX idx_invoice_line_id (invoice_line_id),
+                    INDEX idx_serial_number (serial_number),
+                    INDEX idx_item_code (item_code),
+                    INDEX idx_warehouse_code (warehouse_code)
+                )
+            ''',
+            
+            # 19. Serial Number Lookups (For SAP B1 Integration)
+            'serial_number_lookups': '''
+                CREATE TABLE IF NOT EXISTS serial_number_lookups (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    serial_number VARCHAR(100) NOT NULL,
+                    item_code VARCHAR(50),
+                    item_description VARCHAR(200),
+                    warehouse_code VARCHAR(10),
+                    lookup_status VARCHAR(20) DEFAULT 'pending',
+                    lookup_error TEXT,
+                    sap_response JSON,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_serial_number (serial_number),
+                    INDEX idx_item_code (item_code),
+                    INDEX idx_lookup_status (lookup_status),
+                    INDEX idx_warehouse_code (warehouse_code),
+                    INDEX idx_created_at (created_at)
+                )
             '''
         }
         
@@ -551,7 +648,8 @@ class MySQLMigration:
             ('GRPO', 'GRPO-', 1, True),
             ('TRANSFER', 'TR-', 1, True),
             ('SERIAL_TRANSFER', 'STR-', 1, True),
-            ('PICKLIST', 'PL-', 1, True)
+            ('PICKLIST', 'PL-', 1, True),
+            ('INVOICE', 'INV-', 1, True)
         ]
         
         for series in document_series:

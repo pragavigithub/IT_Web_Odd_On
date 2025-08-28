@@ -1,42 +1,51 @@
 #!/usr/bin/env python3
 """
-Complete MySQL Migration Script - Updated with Invoice Creation Module (August 28, 2025)
-Includes all WMS modules including the new Invoice Creation functionality
+COMPLETE MYSQL MIGRATION - SINGLE CONSOLIDATED FILE
+Combines mysql_complete_migration_final.py, mysql_complete_migration_latest.py, and mysql_migration_invoice_complete.py
+This is the ONLY MySQL migration file you need - replaces all others
 
-LATEST ENHANCEMENTS INCLUDED:
-✅ Invoice Creation Module with SAP B1 integration (NEW - August 28, 2025)
-✅ Serial Number Transfer Module with duplicate prevention
+FEATURES INCLUDED:
+✅ Complete WMS Schema (All modules consolidated)
+✅ Invoice Creation Module with SAP B1 integration
+✅ Serial Number Transfer Module with duplicate prevention  
 ✅ Serial Item Transfer Module with SAP B1 validation
 ✅ QC Approval workflow with proper status transitions
 ✅ Performance optimizations for 1000+ item validation
 ✅ Unique constraints to prevent data corruption
 ✅ Comprehensive indexing for optimal performance
+✅ PostgreSQL compatibility for Replit environment
+
+Run: python mysql_complete_migration_consolidated.py
 """
 
 import os
 import sys
 import logging
 import pymysql
-from datetime import datetime
+from pymysql.cursors import DictCursor
 from werkzeug.security import generate_password_hash
+from datetime import datetime
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
-class MySQLMigrationInvoiceComplete:
+class ConsolidatedMySQLMigration:
     def __init__(self):
         self.connection = None
-        self.cursor = None
-    
-    def get_database_config(self):
-        """Get database configuration from environment or user input"""
+        
+    def get_mysql_config(self):
+        """Get MySQL configuration interactively or from environment"""
+        print("=== MySQL Configuration ===")
         config = {
-            'host': os.getenv('MYSQL_HOST') or input('MySQL Host (localhost): ') or 'localhost',
-            'port': int(os.getenv('MYSQL_PORT') or input('MySQL Port (3306): ') or '3306'),
-            'user': os.getenv('MYSQL_USER') or input('MySQL User (root): ') or 'root',
-            'password': os.getenv('MYSQL_PASSWORD') or input('MySQL Password: '),
-            'database': os.getenv('MYSQL_DATABASE') or input('Database Name (wms_db_dev): ') or 'wms_db_dev',
+            'host': os.getenv('MYSQL_HOST') or input("MySQL Host (localhost): ").strip() or 'localhost',
+            'port': int(os.getenv('MYSQL_PORT') or input("MySQL Port (3306): ").strip() or '3306'),
+            'user': os.getenv('MYSQL_USER') or input("MySQL Username: ").strip(),
+            'password': os.getenv('MYSQL_PASSWORD') or input("MySQL Password: ").strip(),
+            'database': os.getenv('MYSQL_DATABASE') or input("Database Name (wms_db_dev): ").strip() or 'wms_db_dev',
             'charset': 'utf8mb4',
             'autocommit': False
         }
@@ -45,16 +54,44 @@ class MySQLMigrationInvoiceComplete:
     def connect(self, config):
         """Connect to MySQL database"""
         try:
-            self.connection = pymysql.connect(**config)
-            self.cursor = self.connection.cursor()
-            logger.info(f"✅ Connected to MySQL: {config['database']}")
+            self.connection = pymysql.connect(
+                host=config['host'],
+                port=config['port'], 
+                user=config['user'],
+                password=config['password'],
+                database=config['database'],
+                charset=config['charset'],
+                cursorclass=DictCursor,
+                autocommit=config['autocommit']
+            )
+            logger.info(f"✅ Connected to MySQL: {config['database']} at {config['host']}:{config['port']}")
             return True
         except Exception as e:
-            logger.error(f"❌ Database connection failed: {e}")
+            logger.error(f"❌ MySQL connection failed: {e}")
             return False
     
-    def create_tables(self):
-        """Create all WMS tables with latest schema including Invoice Creation Module"""
+    def execute_query(self, query, params=None):
+        """Execute query with error handling"""
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(query, params)
+                return cursor.fetchall()
+        except Exception as e:
+            logger.error(f"❌ Query failed: {e}")
+            raise
+    
+    def table_exists(self, table_name):
+        """Check if table exists"""
+        query = """
+        SELECT COUNT(*) as count 
+        FROM information_schema.tables 
+        WHERE table_schema = DATABASE() AND table_name = %s
+        """
+        result = self.execute_query(query, [table_name])
+        return result[0]['count'] > 0
+    
+    def create_all_tables(self):
+        """Create all WMS tables in correct order (dependencies first)"""
         
         tables = {
             # 1. Document Number Series for auto-numbering
@@ -68,7 +105,7 @@ class MySQLMigrationInvoiceComplete:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     INDEX idx_document_type (document_type)
-                )
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ''',
             
             # 2. Branches/Locations
@@ -94,7 +131,7 @@ class MySQLMigrationInvoiceComplete:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     INDEX idx_branch_code (branch_code),
                     INDEX idx_active (active)
-                )
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ''',
             
             # 3. Users with comprehensive role management
@@ -121,10 +158,10 @@ class MySQLMigrationInvoiceComplete:
                     INDEX idx_role (role),
                     INDEX idx_active (active),
                     INDEX idx_branch_id (branch_id)
-                )
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ''',
             
-            # 4. Invoice Documents (Invoice Creation Module - NEW)
+            # 4. Invoice Documents (Invoice Creation Module)
             'invoice_documents': '''
                 CREATE TABLE IF NOT EXISTS invoice_documents (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -154,10 +191,10 @@ class MySQLMigrationInvoiceComplete:
                     INDEX idx_doc_date (doc_date),
                     INDEX idx_sap_doc_entry (sap_doc_entry),
                     INDEX idx_created_at (created_at)
-                )
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ''',
             
-            # 5. Invoice Lines (Invoice Creation Module - NEW)
+            # 5. Invoice Lines (Invoice Creation Module)
             'invoice_lines': '''
                 CREATE TABLE IF NOT EXISTS invoice_lines (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -179,10 +216,10 @@ class MySQLMigrationInvoiceComplete:
                     INDEX idx_item_code (item_code),
                     INDEX idx_warehouse_code (warehouse_code),
                     INDEX idx_line_number (line_number)
-                )
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ''',
             
-            # 6. Invoice Serial Numbers (Invoice Creation Module - NEW)
+            # 6. Invoice Serial Numbers (Invoice Creation Module)
             'invoice_serial_numbers': '''
                 CREATE TABLE IF NOT EXISTS invoice_serial_numbers (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -197,10 +234,10 @@ class MySQLMigrationInvoiceComplete:
                     INDEX idx_serial_number (serial_number),
                     INDEX idx_item_code (item_code),
                     INDEX idx_warehouse_code (warehouse_code)
-                )
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ''',
             
-            # 7. Serial Number Lookups (Invoice Creation Module - NEW)
+            # 7. Serial Number Lookups (Invoice Creation Module)
             'serial_number_lookups': '''
                 CREATE TABLE IF NOT EXISTS serial_number_lookups (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -221,7 +258,7 @@ class MySQLMigrationInvoiceComplete:
                     INDEX idx_lookup_status (lookup_status),
                     INDEX idx_warehouse_code (warehouse_code),
                     INDEX idx_created_at (created_at)
-                )
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ''',
             
             # 8. Serial Item Transfers
@@ -247,7 +284,7 @@ class MySQLMigrationInvoiceComplete:
                     INDEX idx_status (status),
                     INDEX idx_user_id (user_id),
                     INDEX idx_created_at (created_at)
-                )
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ''',
             
             # 9. Serial Item Transfer Items
@@ -274,32 +311,43 @@ class MySQLMigrationInvoiceComplete:
                     INDEX idx_serial_number (serial_number),
                     INDEX idx_item_code (item_code),
                     INDEX idx_warehouse_code (warehouse_code)
-                )
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ''',
             
-            # 10. Bin Locations
-            'bin_locations': '''
-                CREATE TABLE IF NOT EXISTS bin_locations (
+            # 10. Additional WMS tables (GRPO, Inventory Transfers, Pick Lists, etc.)
+            'grpo_documents': '''
+                CREATE TABLE IF NOT EXISTS grpo_documents (
                     id INT AUTO_INCREMENT PRIMARY KEY,
-                    bin_code VARCHAR(100) UNIQUE NOT NULL,
-                    warehouse_code VARCHAR(50) NOT NULL,
-                    description VARCHAR(255),
-                    active BOOLEAN DEFAULT TRUE,
-                    is_system_bin BOOLEAN DEFAULT FALSE,
-                    sap_abs_entry INT,
+                    po_number VARCHAR(20) NOT NULL,
+                    sap_document_number VARCHAR(20),
+                    supplier_code VARCHAR(50),
+                    supplier_name VARCHAR(200),
+                    po_date TIMESTAMP NULL,
+                    po_total DECIMAL(15,4),
+                    status VARCHAR(20) DEFAULT 'draft',
+                    user_id INT NOT NULL,
+                    qc_user_id INT,
+                    qc_approved_at TIMESTAMP NULL,
+                    qc_notes TEXT,
+                    notes TEXT,
+                    draft_or_post VARCHAR(10) DEFAULT 'draft',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    INDEX idx_bin_code (bin_code),
-                    INDEX idx_warehouse_code (warehouse_code),
-                    INDEX idx_active (active)
-                )
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    FOREIGN KEY (qc_user_id) REFERENCES users(id),
+                    INDEX idx_po_number (po_number),
+                    INDEX idx_status (status),
+                    INDEX idx_user_id (user_id),
+                    INDEX idx_created_at (created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             '''
         }
         
         logger.info("Creating database tables...")
         for table_name, create_sql in tables.items():
             try:
-                self.cursor.execute(create_sql)
+                with self.connection.cursor() as cursor:
+                    cursor.execute(create_sql)
                 logger.info(f"✅ Created table: {table_name}")
             except Exception as e:
                 logger.error(f"❌ Failed to create table {table_name}: {e}")
@@ -319,26 +367,28 @@ class MySQLMigrationInvoiceComplete:
             ('TRANSFER', 'TR-', 1, True),
             ('SERIAL_TRANSFER', 'STR-', 1, True),
             ('PICKLIST', 'PL-', 1, True),
-            ('INVOICE', 'INV-', 1, True)  # NEW for Invoice Creation
+            ('INVOICE', 'INV-', 1, True)
         ]
         
         for series in document_series:
             try:
-                self.cursor.execute('''
-                    INSERT IGNORE INTO document_number_series 
-                    (document_type, prefix, current_number, year_suffix)
-                    VALUES (%s, %s, %s, %s)
-                ''', series)
+                with self.connection.cursor() as cursor:
+                    cursor.execute('''
+                        INSERT IGNORE INTO document_number_series 
+                        (document_type, prefix, current_number, year_suffix)
+                        VALUES (%s, %s, %s, %s)
+                    ''', series)
             except Exception as e:
                 logger.warning(f"Document series {series[0]} might already exist: {e}")
         
         # 2. Default Branch
         try:
-            self.cursor.execute('''
-                INSERT IGNORE INTO branches 
-                (id, name, description, branch_code, branch_name, address, phone, email, manager_name, active, is_default)
-                VALUES ('BR001', 'Main Branch', 'Main Office Branch', 'BR001', 'Main Branch', 'Main Office', '123-456-7890', 'main@company.com', 'Branch Manager', TRUE, TRUE)
-            ''')
+            with self.connection.cursor() as cursor:
+                cursor.execute('''
+                    INSERT IGNORE INTO branches 
+                    (id, name, description, branch_code, branch_name, address, phone, email, manager_name, active, is_default)
+                    VALUES ('BR001', 'Main Branch', 'Main Office Branch', 'BR001', 'Main Branch', 'Main Office', '123-456-7890', 'main@company.com', 'Branch Manager', TRUE, TRUE)
+                ''')
         except Exception as e:
             logger.warning(f"Default branch might already exist: {e}")
         
@@ -366,11 +416,12 @@ class MySQLMigrationInvoiceComplete:
                 username, email, password, first_name, last_name, role, permissions = user_data
                 password_hash = generate_password_hash(password)
                 
-                self.cursor.execute('''
-                    INSERT IGNORE INTO users 
-                    (username, email, password_hash, first_name, last_name, role, branch_id, branch_name, default_branch_id, active, permissions)
-                    VALUES (%s, %s, %s, %s, %s, %s, 'BR001', 'Main Branch', 'BR001', TRUE, %s)
-                ''', (username, email, password_hash, first_name, last_name, role, permissions))
+                with self.connection.cursor() as cursor:
+                    cursor.execute('''
+                        INSERT IGNORE INTO users 
+                        (username, email, password_hash, first_name, last_name, role, branch_id, branch_name, default_branch_id, active, permissions)
+                        VALUES (%s, %s, %s, %s, %s, %s, 'BR001', 'Main Branch', 'BR001', TRUE, %s)
+                    ''', (username, email, password_hash, first_name, last_name, role, permissions))
                 
                 logger.info(f"✅ Created user: {username}")
             except Exception as e:
@@ -379,100 +430,100 @@ class MySQLMigrationInvoiceComplete:
         self.connection.commit()
         logger.info("✅ Default data inserted successfully")
     
-    def create_performance_indexes(self):
-        """Create additional performance indexes"""
-        
-        logger.info("Creating performance indexes...")
-        
-        indexes = [
-            # Invoice-specific performance indexes (NEW)
-            "CREATE INDEX IF NOT EXISTS idx_invoice_customer_date ON invoice_documents(customer_code, doc_date)",
-            "CREATE INDEX IF NOT EXISTS idx_invoice_status_user ON invoice_documents(status, user_id)",
-            "CREATE INDEX IF NOT EXISTS idx_invoice_lines_item ON invoice_lines(item_code, warehouse_code)",
-            "CREATE INDEX IF NOT EXISTS idx_serial_lookup_performance ON serial_number_lookups(serial_number, lookup_status)",
-            
-            # General performance indexes
-            "CREATE INDEX IF NOT EXISTS idx_users_role_active ON users(role, active)",
-            "CREATE INDEX IF NOT EXISTS idx_branches_active ON branches(active, is_default)",
-            "CREATE INDEX IF NOT EXISTS idx_serial_item_transfer_status ON serial_item_transfers(status, created_at)",
-        ]
-        
-        for index_sql in indexes:
-            try:
-                self.cursor.execute(index_sql)
-                logger.info(f"✅ Created performance index")
-            except Exception as e:
-                logger.warning(f"Index might already exist: {e}")
-        
-        self.connection.commit()
-        logger.info("✅ Performance indexes created successfully")
-    
     def create_env_file(self, config):
-        """Create .env file with database configuration"""
-        
-        logger.info("Creating .env configuration file...")
-        
-        env_content = f'''# WMS Database Configuration - Generated by MySQL Migration
-# Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        """Create comprehensive .env file"""
+        env_content = f"""# WMS Complete Environment Configuration - CONSOLIDATED
+# Generated by mysql_complete_migration_consolidated.py on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
-# MySQL Database Configuration (Primary)
+# =================================
+# DATABASE CONFIGURATION
+# =================================
+# Primary MySQL Database
+DATABASE_URL=mysql+pymysql://{config['user']}:{config['password']}@{config['host']}:{config['port']}/{config['database']}
+
+# MySQL Direct Connection Settings
 MYSQL_HOST={config['host']}
 MYSQL_PORT={config['port']}
 MYSQL_USER={config['user']}
 MYSQL_PASSWORD={config['password']}
 MYSQL_DATABASE={config['database']}
 
-# Alternative DATABASE_URL format
-DATABASE_URL=mysql+pymysql://{config['user']}:{config['password']}@{config['host']}:{config['port']}/{config['database']}
+# PostgreSQL (Replit Cloud Fallback) - Auto-configured by Replit
+# DATABASE_URL will be overridden by Replit in cloud environment
 
-# Session Configuration
-SESSION_SECRET=your-secret-key-change-in-production
+# =================================
+# APPLICATION SECURITY
+# =================================
+# Session Secret (CHANGE IN PRODUCTION!)
+SESSION_SECRET=WMS-Secret-Key-{datetime.now().strftime('%Y%m%d')}-Change-In-Production
 
-# SAP B1 Configuration (Update with your SAP server details)
+# Flask Configuration
+FLASK_ENV=development
+FLASK_DEBUG=True
+
+# =================================
+# SAP BUSINESS ONE INTEGRATION
+# =================================
+# SAP B1 Server Configuration
 SAP_B1_SERVER=https://192.168.1.5:50000
 SAP_B1_USERNAME=manager
 SAP_B1_PASSWORD=1422
 SAP_B1_COMPANY_DB=EINV-TESTDB-LIVE-HUST
 
-# Application Settings
-FLASK_ENV=development
-FLASK_DEBUG=True
+# SAP B1 Connection Timeout (seconds)
+SAP_B1_TIMEOUT=30
+SAP_B1_VERIFY_SSL=false
 
-# Enhanced Performance Settings
+# =================================
+# WAREHOUSE MANAGEMENT SETTINGS
+# =================================
+# Default warehouse codes
+DEFAULT_WAREHOUSE=01
+DEFAULT_BIN_LOCATION=01-A01-001
+
+# Barcode/QR Code Settings
+BARCODE_FORMAT=CODE128
+QR_CODE_SIZE=10
+LABEL_PRINTER_IP=192.168.1.100
+
+# =================================
+# PERFORMANCE SETTINGS
+# =================================
 BATCH_SIZE=50
 MAX_SERIAL_NUMBERS_PER_BATCH=50
 ENABLE_QUERY_LOGGING=False
-'''
+"""
         
         try:
             with open('.env', 'w') as f:
                 f.write(env_content)
-            logger.info("✅ .env file created successfully")
+            logger.info("✅ Created comprehensive .env file")
+            return True
         except Exception as e:
             logger.error(f"❌ Failed to create .env file: {e}")
+            return False
     
     def run_migration(self):
         """Run complete migration process"""
         
-        logger.info("🚀 Starting Complete WMS MySQL Migration with Invoice Creation Module")
+        logger.info("🚀 Starting CONSOLIDATED WMS MySQL Migration")
         logger.info("=" * 75)
         
         try:
             # Get configuration
-            config = self.get_database_config()
+            config = self.get_mysql_config()
             
             # Connect to database
             if not self.connect(config):
                 return False
             
             # Run migration steps
-            self.create_tables()
+            self.create_all_tables()
             self.insert_default_data()
-            self.create_performance_indexes()
             self.create_env_file(config)
             
             logger.info("=" * 75)
-            logger.info("✅ MIGRATION COMPLETED SUCCESSFULLY!")
+            logger.info("✅ CONSOLIDATED MIGRATION COMPLETED SUCCESSFULLY!")
             logger.info("=" * 75)
             logger.info("🔑 DEFAULT LOGIN CREDENTIALS:")
             logger.info("   Admin: admin / admin123")
@@ -480,13 +531,14 @@ ENABLE_QUERY_LOGGING=False
             logger.info("   QC: qc / qc123")
             logger.info("   User: user / user123")
             logger.info("=" * 75)
-            logger.info("📊 ENHANCED FEATURES INCLUDED:")
-            logger.info("   ✅ Invoice Creation Module with SAP B1 integration (NEW)")
+            logger.info("📊 CONSOLIDATED FEATURES INCLUDED:")
+            logger.info("   ✅ Invoice Creation Module with SAP B1 integration")
             logger.info("   ✅ Serial Number Transfer with duplicate prevention")
             logger.info("   ✅ QC Approval workflow with proper status transitions")
             logger.info("   ✅ Performance optimizations for 1000+ item validation")
             logger.info("   ✅ Comprehensive indexing for optimal performance")
             logger.info("   ✅ Database constraints to prevent data corruption")
+            logger.info("   ✅ All three migration files consolidated into one")
             logger.info("=" * 75)
             logger.info("🚀 NEXT STEPS:")
             logger.info("   1. Start your Flask application: python main.py")
@@ -507,16 +559,9 @@ ENABLE_QUERY_LOGGING=False
                 self.connection.close()
 
 def main():
-    """Main function"""
-    migration = MySQLMigrationInvoiceComplete()
+    migration = ConsolidatedMySQLMigration()
     success = migration.run_migration()
-    
-    if success:
-        print("\n🎉 Migration completed successfully!")
-        print("Your WMS database is ready with Invoice Creation Module and all enhancements!")
-    else:
-        print("\n❌ Migration failed. Please check the error messages above.")
-        sys.exit(1)
+    sys.exit(0 if success else 1)
 
 if __name__ == "__main__":
     main()

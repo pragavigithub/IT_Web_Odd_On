@@ -152,6 +152,9 @@ app.config['SAP_B1_COMPANY_DB'] = os.environ.get('SAP_B1_COMPANY_DB',
 import models
 import models_extensions
 
+# Import module models to ensure they are registered
+from modules.invoice_creation import models as invoice_models  # noqa: F401
+
 with app.app_context():
     # Create all database tables first
     db.create_all()

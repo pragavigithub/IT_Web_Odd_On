@@ -53,17 +53,34 @@ def get_business_partners():
     """API endpoint to get business partners from SAP B1"""
     try:
         sap = SAPIntegration()
-        business_partners = sap.get_business_partners()
-        
-        if business_partners:
-            return jsonify({
-                'success': True,
-                'business_partners': business_partners
-            })
-        else:
+        if not sap.ensure_logged_in():
             return jsonify({
                 'success': False,
-                'error': 'Failed to retrieve business partners from SAP B1'
+                'error': 'SAP connection failed'
+            }), 500
+        
+        try:
+            url = f"{sap.base_url}/b1s/v1/BusinessPartners?$filter=CardType eq 'cCustomer'&$select=CardCode,CardName&$top=100"
+            response = sap.session.get(url, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                business_partners = data.get('value', [])
+                return jsonify({
+                    'success': True,
+                    'business_partners': business_partners
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': f'Failed to get business partners: {response.status_code}'
+                }), 500
+        
+        except Exception as e:
+            logging.error(f"Error getting business partners from SAP: {str(e)}")
+            return jsonify({
+                'success': False,
+                'error': f'SAP error: {str(e)}'
             }), 500
             
     except Exception as e:
@@ -117,7 +134,7 @@ def lookup_serial():
         
         try:
             # Use the SQL Query API as specified by user
-            url = f"{sap.base_url}/b1s/v1/SQLQueries('Invoise_creation')/List"
+            url = f"{sap.base_url}/b1s/v1/SQLQueries('Invoice_creation')/List"
             payload = {
                 "ParamList": f"serial_number='{serial_number}'"
             }

@@ -93,11 +93,11 @@ class SAPIntegration:
             data = response.json()
             business_partners = data.get('value', [])
             
-            logger.info(f"✅ Retrieved {len(business_partners)} business partners from SAP B1")
+            logging.info(f"✅ Retrieved {len(business_partners)} business partners from SAP B1")
             return business_partners
             
         except Exception as e:
-            logger.error(f"❌ Failed to get business partners: {e}")
+            logging.error(f"❌ Failed to get business partners: {e}")
             return None
 
     def get_inventory_transfer_request(self, doc_num):
@@ -1349,34 +1349,32 @@ class SAPIntegration:
                     logging.info(f"✅ Syncing ps_Released line item {sap_line.get('LineNumber', 0)}")
                 
                 # Create PickListLine
-                pick_list_line = PickListLine(
-                    pick_list_id=local_pick_list.id,
-                    absolute_entry=sap_line.get('AbsoluteEntry'),
-                    line_number=sap_line.get('LineNumber', 0),
-                    order_entry=sap_line.get('OrderEntry'),
-                    order_row_id=sap_line.get('OrderRowID'),
-                    picked_quantity=float(sap_line.get('PickedQuantity', 0)),
-                    pick_status=pick_status,
-                    released_quantity=float(sap_line.get('ReleasedQuantity', 0)),
-                    previously_released_quantity=float(sap_line.get('PreviouslyReleasedQuantity', 0)),
-                    base_object_type=sap_line.get('BaseObjectType', 17),
-                    serial_numbers=json.dumps(sap_line.get('SerialNumbers', [])),
-                    batch_numbers=json.dumps(sap_line.get('BatchNumbers', []))
-                )
+                pick_list_line = PickListLine()
+                pick_list_line.pick_list_id = local_pick_list.id
+                pick_list_line.absolute_entry = sap_line.get('AbsoluteEntry')
+                pick_list_line.line_number = sap_line.get('LineNumber', 0)
+                pick_list_line.order_entry = sap_line.get('OrderEntry')
+                pick_list_line.order_row_id = sap_line.get('OrderRowID')
+                pick_list_line.picked_quantity = float(sap_line.get('PickedQuantity', 0))
+                pick_list_line.pick_status = pick_status
+                pick_list_line.released_quantity = float(sap_line.get('ReleasedQuantity', 0))
+                pick_list_line.previously_released_quantity = float(sap_line.get('PreviouslyReleasedQuantity', 0))
+                pick_list_line.base_object_type = sap_line.get('BaseObjectType', 17)
+                pick_list_line.serial_numbers = json.dumps(sap_line.get('SerialNumbers', []))
+                pick_list_line.batch_numbers = json.dumps(sap_line.get('BatchNumbers', []))
                 db.session.add(pick_list_line)
                 db.session.flush()  # Get the ID
                 
                 # Sync DocumentLinesBinAllocations
                 bin_allocations = sap_line.get('DocumentLinesBinAllocations', [])
                 for bin_allocation in bin_allocations:
-                    pick_list_bin_allocation = PickListBinAllocation(
-                        pick_list_line_id=pick_list_line.id,
-                        bin_abs_entry=bin_allocation.get('BinAbsEntry'),
-                        quantity=float(bin_allocation.get('Quantity', 0)),
-                        allow_negative_quantity=bin_allocation.get('AllowNegativeQuantity', 'tNO'),
-                        serial_and_batch_numbers_base_line=bin_allocation.get('SerialAndBatchNumbersBaseLine', 0),
-                        base_line_number=bin_allocation.get('BaseLineNumber')
-                    )
+                    pick_list_bin_allocation = PickListBinAllocation()
+                    pick_list_bin_allocation.pick_list_line_id = pick_list_line.id
+                    pick_list_bin_allocation.bin_abs_entry = bin_allocation.get('BinAbsEntry')
+                    pick_list_bin_allocation.quantity = float(bin_allocation.get('Quantity', 0))
+                    pick_list_bin_allocation.allow_negative_quantity = bin_allocation.get('AllowNegativeQuantity', 'tNO')
+                    pick_list_bin_allocation.serial_and_batch_numbers_base_line = bin_allocation.get('SerialAndBatchNumbersBaseLine', 0)
+                    pick_list_bin_allocation.base_line_number = bin_allocation.get('BaseLineNumber')
                     db.session.add(pick_list_bin_allocation)
             
             # Update pick list totals

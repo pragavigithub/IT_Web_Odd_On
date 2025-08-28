@@ -1,0 +1,62 @@
+name: wms_mobile
+description: Warehouse Management System Mobile Application
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # UI & Material Design
+  cupertino_icons: ^1.0.6
+  material_design_icons_flutter: ^7.0.7296
+  
+  # Barcode & QR Code Scanning
+  mobile_scanner: ^3.5.6
+  permission_handler: ^11.0.1
+  
+  # Database & Storage
+  sqflite: ^2.3.0
+  path_provider: ^2.1.2
+  shared_preferences: ^2.2.2
+  
+  # Network & API
+  dio: ^5.4.0
+  connectivity_plus: ^5.0.2
+  json_annotation: ^4.8.1
+  
+  # State Management
+  provider: ^6.1.1
+  
+  # Background Tasks
+  workmanager: ^0.5.1
+  
+  # Utilities
+  intl: ^0.19.0
+  uuid: ^4.2.1
+  path: ^1.8.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  json_serializable: ^6.7.1
+  build_runner: ^2.4.7
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/images/
+    - assets/icons/
+  
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: fonts/Roboto-Regular.ttf
+        - asset: fonts/Roboto-Bold.ttf
+          weight: 700

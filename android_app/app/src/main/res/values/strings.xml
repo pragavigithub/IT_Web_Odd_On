@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">WMS Mobile</string>
+    <string name="navigation_grpo">GRPO</string>
+    <string name="navigation_inventory_transfer">Transfer</string>
+    <string name="navigation_pick_list">Pick List</string>
+    <string name="navigation_settings">Settings</string>
+    <string name="title_grpo_documents">GRPO Documents</string>
+    <string name="title_inventory_transfers">Inventory Transfers</string>
+    <string name="title_pick_lists">Pick Lists</string>
+    <string name="title_settings">Settings</string>
+    <string name="action_add">Add</string>
+    <string name="action_scan">Scan</string>
+    <string name="action_sync">Sync</string>
+</resources>

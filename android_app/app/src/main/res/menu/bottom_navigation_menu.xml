@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_grpo"
+        android:enabled="true"
+        android:icon="@drawable/ic_receipt"
+        android:title="GRPO" />
+    <item
+        android:id="@+id/nav_inventory_transfer"
+        android:enabled="true"
+        android:icon="@drawable/ic_transfer"
+        android:title="Transfer" />
+    <item
+        android:id="@+id/nav_pick_list"
+        android:enabled="true"
+        android:icon="@drawable/ic_list"
+        android:title="Pick List" />
+    <item
+        android:id="@+id/nav_settings"
+        android:enabled="true"
+        android:icon="@drawable/ic_settings"
+        android:title="Settings" />
+</menu>

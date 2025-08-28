@@ -116,16 +116,7 @@ def get_business_partners():
             logging.warning("⚠️ SAP B1 configuration missing - returning fallback customers")
             # Return fallback customer data for offline mode
             fallback_customers = [
-                {"CardCode": "CUS0001", "CardName": "ABC Corporation Limited"},
-                {"CardCode": "CUS0002", "CardName": "XYZ Industries Pvt Ltd"},
-                {"CardCode": "CUS0003", "CardName": "Demo Customer Co."},
-                {"CardCode": "CUS0028", "CardName": "RAHUL PHONE CUSTOMER"},
-                {"CardCode": "CUS0071", "CardName": "FORD MOTOR COMPANY OF AUSTRALIA"},
-                {"CardCode": "SMDES", "CardName": "S.M.D Engg. Services"},
-                {"CardCode": "3D SEALS", "CardName": "3D SEALS PRIVATE LIMITED"},
-                {"CardCode": "3D SPL", "CardName": "3D SEALS PRIVATE LIMITED"},
-                {"CardCode": "4S Cargo", "CardName": "4S Cargo Services"},
-                {"CardCode": "AJT", "CardName": "A.J Traders"}
+
             ]
             return jsonify({
                 'success': True,
@@ -136,16 +127,7 @@ def get_business_partners():
         if not sap.ensure_logged_in():
             logging.error("❌ SAP login failed - returning fallback customers")
             fallback_customers = [
-                {"CardCode": "CUS0001", "CardName": "ABC Corporation Limited"},
-                {"CardCode": "CUS0002", "CardName": "XYZ Industries Pvt Ltd"},
-                {"CardCode": "CUS0003", "CardName": "Demo Customer Co."},
-                {"CardCode": "CUS0028", "CardName": "RAHUL PHONE CUSTOMER"},
-                {"CardCode": "CUS0071", "CardName": "FORD MOTOR COMPANY OF AUSTRALIA"},
-                {"CardCode": "SMDES", "CardName": "S.M.D Engg. Services"},
-                {"CardCode": "3D SEALS", "CardName": "3D SEALS PRIVATE LIMITED"},
-                {"CardCode": "3D SPL", "CardName": "3D SEALS PRIVATE LIMITED"},
-                {"CardCode": "4S Cargo", "CardName": "4S Cargo Services"},
-                {"CardCode": "AJT", "CardName": "A.J Traders"}
+
             ]
             return jsonify({
                 'success': True,
@@ -160,6 +142,7 @@ def get_business_partners():
             
             if response.status_code == 200:
                 data = response.json()
+                print(f"transfer_item (repr) --> {repr(data)}")
                 business_partners = data.get('value', [])
                 logging.info(f"✅ Retrieved {len(business_partners)} business partners from SAP")
                 return jsonify({
@@ -171,16 +154,7 @@ def get_business_partners():
                 logging.error(f"❌ SAP API error: {response.status_code} - {response.text}")
                 # Return fallback on API error
                 fallback_customers = [
-                    {"CardCode": "CUS0001", "CardName": "ABC Corporation Limited"},
-                    {"CardCode": "CUS0002", "CardName": "XYZ Industries Pvt Ltd"},
-                    {"CardCode": "CUS0003", "CardName": "Demo Customer Co."},
-                    {"CardCode": "CUS0028", "CardName": "RAHUL PHONE CUSTOMER"},
-                    {"CardCode": "CUS0071", "CardName": "FORD MOTOR COMPANY OF AUSTRALIA"},
-                    {"CardCode": "SMDES", "CardName": "S.M.D Engg. Services"},
-                    {"CardCode": "3D SEALS", "CardName": "3D SEALS PRIVATE LIMITED"},
-                    {"CardCode": "3D SPL", "CardName": "3D SEALS PRIVATE LIMITED"},
-                    {"CardCode": "4S Cargo", "CardName": "4S Cargo Services"},
-                    {"CardCode": "AJT", "CardName": "A.J Traders"}
+
                 ]
                 return jsonify({
                     'success': True,
@@ -191,16 +165,7 @@ def get_business_partners():
         except Exception as e:
             logging.error(f"❌ SAP request failed: {str(e)}")
             fallback_customers = [
-                {"CardCode": "CUS0001", "CardName": "ABC Corporation Limited"},
-                {"CardCode": "CUS0002", "CardName": "XYZ Industries Pvt Ltd"},
-                {"CardCode": "CUS0003", "CardName": "Demo Customer Co."},
-                {"CardCode": "CUS0028", "CardName": "RAHUL PHONE CUSTOMER"},
-                {"CardCode": "CUS0071", "CardName": "FORD MOTOR COMPANY OF AUSTRALIA"},
-                {"CardCode": "SMDES", "CardName": "S.M.D Engg. Services"},
-                {"CardCode": "3D SEALS", "CardName": "3D SEALS PRIVATE LIMITED"},
-                {"CardCode": "3D SPL", "CardName": "3D SEALS PRIVATE LIMITED"},
-                {"CardCode": "4S Cargo", "CardName": "4S Cargo Services"},
-                {"CardCode": "AJT", "CardName": "A.J Traders"}
+
             ]
             return jsonify({
                 'success': True,
@@ -236,15 +201,7 @@ def validate_serial_number():
             logging.warning("⚠️ SAP B1 configuration missing - using fallback validation")
             # Return fallback serial validation data for offline mode
             fallback_data = {
-                'ItemCode': 'MI Phone',
-                'ItemName': 'RAHUL PHONE',
-                'DistNumber': serial_number,
-                'WhsCode': '7000-FG',
-                'WhsName': 'Finished Goods GST-ORD DC CHN - Assigned to AVS',
-                'BPLName': 'ORD-CHENNAI',
-                'BPLid': 5,
-                'CardCode': 'CUS0028',
-                'CardName': 'RAHUL PHONE CUSTOMER'
+
             }
             return jsonify({
                 'success': True,
@@ -256,15 +213,7 @@ def validate_serial_number():
             logging.error("❌ SAP login failed - using fallback validation")
             # Return fallback serial validation data for offline mode
             fallback_data = {
-                'ItemCode': 'MI Phone',
-                'ItemName': 'RAHUL PHONE',
-                'DistNumber': serial_number,
-                'WhsCode': '7000-FG',
-                'WhsName': 'Finished Goods GST-ORD DC CHN - Assigned to AVS',
-                'BPLName': 'ORD-CHENNAI',
-                'BPLid': 5,
-                'CardCode': 'CUS0028',
-                'CardName': 'RAHUL PHONE CUSTOMER'
+
             }
             return jsonify({
                 'success': True,
@@ -305,10 +254,10 @@ def validate_serial_number():
                     
                     # If no customer found from serial, add a common customer for demo
                     if not response_data['CardCode']:
-                        response_data['CardCode'] = 'CUS0028'
-                        response_data['CardName'] = 'RAHUL PHONE CUSTOMER'
-                        response_data['CustomerCode'] = 'CUS0028'
-                        response_data['CustomerName'] = 'RAHUL PHONE CUSTOMER'
+                        response_data['CardCode'] = ''
+                        response_data['CardName'] = ''
+                        response_data['CustomerCode'] = ''
+                        response_data['CustomerName'] = ''
                     
                     return jsonify({
                         'success': True,
@@ -329,15 +278,7 @@ def validate_serial_number():
             logging.error(f"❌ SAP validation failed: {str(e)} - using fallback validation")
             # Return fallback serial validation data on SAP error
             fallback_data = {
-                'ItemCode': 'MI Phone',
-                'ItemName': 'RAHUL PHONE',
-                'DistNumber': serial_number,
-                'WhsCode': '7000-FG',
-                'WhsName': 'Finished Goods GST-ORD DC CHN - Assigned to AVS',
-                'BPLName': 'ORD-CHENNAI',
-                'BPLid': 5,
-                'CardCode': 'CUS0028',
-                'CardName': 'RAHUL PHONE CUSTOMER'
+
             }
             return jsonify({
                 'success': True,

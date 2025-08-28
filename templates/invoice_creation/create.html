@@ -221,10 +221,12 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeInvoiceCreation();
 });
 
+// Global variables
+let currentInvoiceId = null;
+let currentLine = 1;
+
 function initializeInvoiceCreation() {
     console.log('Initializing Invoice Creation functionality');
-    let currentInvoiceId = null;
-    let currentLine = 1;
 
     // Set current date
     const today = new Date();
@@ -252,8 +254,10 @@ function initializeInvoiceCreation() {
         $('#aboutModal').modal('show');
     });
     $('#submitForQCBtn').on('click', submitInvoice);
+}
 
-    function createDraftInvoice() {
+// Global functions that need to be accessible
+function createDraftInvoice() {
         console.log('🔄 Creating draft invoice...');
         
         $.ajax({
@@ -276,9 +280,9 @@ function initializeInvoiceCreation() {
                 showTemporaryMessage('Error creating draft invoice. Please refresh the page.', 'danger');
             }
         });
-    }
+}
 
-    function addRowToTable(itemData) {
+function addRowToTable(itemData) {
         console.log('🔄 Adding row to table:', itemData);
         
         const tbody = $('#serialItemsBody');
@@ -318,16 +322,16 @@ function initializeInvoiceCreation() {
         
         console.log('✅ Row added to table successfully');
         updateItemCount();
-    }
+}
 
-    function loadExistingItems() {
+function loadExistingItems() {
         // This would load existing items from the database for the current invoice
         // For now, we'll start with an empty table since it's a new draft
         console.log('🔄 Loading existing items for invoice:', currentInvoiceId);
         updateItemCount();
-    }
+}
 
-    function loadBusinessPartners() {
+function loadBusinessPartners() {
         console.log('🔄 Loading business partners...');
         
         // Add manual input option first
@@ -592,11 +596,11 @@ function initializeInvoiceCreation() {
         console.log('✅ Table updated successfully');
     }
 
-    function updateSummaryCards() {
-        updateItemCount();
-    }
+function updateSummaryCards() {
+    updateItemCount();
+}
 
-    function removeLineItem(itemId) {
+function removeLineItem(itemId) {
         if (!currentInvoiceId) {
             showTemporaryMessage('No invoice available', 'danger');
             return;
@@ -633,21 +637,21 @@ function initializeInvoiceCreation() {
                 showTemporaryMessage('Error removing item', 'danger');
             }
         });
-    }
+}
 
-    function clearAllItems() {
+function clearAllItems() {
         // For now, we'll disable this function since items are in database
         // Could implement by deleting all items from current invoice
         showTemporaryMessage('Clear all function not implemented yet', 'info');
-    }
+}
 
-    function submitInvoice() {
+function submitInvoice() {
         // Implementation for submitting invoice for QC
         showTemporaryMessage('Submit function not implemented yet', 'info');
-    }
+}
 
-    // Updated summary calculation
-    function updateItemCountOld() {
+// Updated summary calculation
+function updateItemCountOld() {
         const validatedItems = [];
         const failedItems = serialNumbers.filter(item => item.status === 'failed').length;
         const totalItems = serialNumbers.length;

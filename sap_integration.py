@@ -70,6 +70,36 @@ class SAPIntegration:
             return self.login()
         return True
 
+    def get_business_partners(self):
+        """
+        Get business partners from SAP B1 for invoice creation
+        Returns list of business partners with CardCode and CardName
+        """
+        if not self.login():
+            return None
+        
+        try:
+            headers = {
+                'Cookie': f'B1SESSION={self.session_id}',
+                'Content-Type': 'application/json',
+                'Prefer': 'odata.maxpagesize=0'
+            }
+            
+            url = f"{self.base_url}/b1s/v1/BusinessPartners?$select=CardCode,CardName"
+            
+            response = requests.get(url, headers=headers, verify=False, timeout=30)
+            response.raise_for_status()
+            
+            data = response.json()
+            business_partners = data.get('value', [])
+            
+            logger.info(f"✅ Retrieved {len(business_partners)} business partners from SAP B1")
+            return business_partners
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to get business partners: {e}")
+            return None
+
     def get_inventory_transfer_request(self, doc_num):
         """Get specific inventory transfer request from SAP B1"""
         if not self.ensure_logged_in():

@@ -125,8 +125,8 @@ $(document).ready(function() {
     let serialNumbers = [];
     let serialLookupData = {};
 
-    // Load customers on page load
-    loadCustomers();
+    // Load business partners on page load
+    loadBusinessPartners();
 
     // Serial number input handling
     $('#serialNumberInput').on('keypress', function(e) {
@@ -139,24 +139,30 @@ $(document).ready(function() {
     $('#addSerialBtn').on('click', addSerialNumber);
     $('#createInvoiceBtn').on('click', createInvoice);
 
-    function loadCustomers() {
+    function loadBusinessPartners() {
         $.ajax({
-            url: '/invoice_creation/api/get_customers',
+            url: '/invoice_creation/api/business-partners',
             method: 'GET',
             success: function(response) {
                 if (response.success) {
                     let customerSelect = $('#customerCode');
                     customerSelect.empty().append('<option value="">Select Customer...</option>');
                     
-                    response.customers.forEach(function(customer) {
-                        customerSelect.append(`<option value="${customer.CardCode}">${customer.CardCode} - ${customer.CardName}</option>`);
+                    response.business_partners.forEach(function(partner) {
+                        customerSelect.append(`<option value="${partner.CardCode}">${partner.CardCode} - ${partner.CardName}</option>`);
                     });
                 } else {
-                    console.error('Failed to load customers:', response.message);
+                    console.error('Failed to load business partners:', response.error);
+                    // Show offline fallback
+                    let customerSelect = $('#customerCode');
+                    customerSelect.empty().append('<option value="">SAP B1 Offline - Enter manually</option>');
                 }
             },
             error: function(xhr, status, error) {
-                console.error('Error loading customers:', error);
+                console.error('Error loading business partners:', error);
+                // Show offline fallback
+                let customerSelect = $('#customerCode');
+                customerSelect.empty().append('<option value="">SAP B1 Offline - Enter manually</option>');
             }
         });
     }

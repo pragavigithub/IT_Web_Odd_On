@@ -47,6 +47,32 @@ def detail(invoice_id):
     
     return render_template('invoice_creation/detail.html', invoice=invoice)
 
+@invoice_bp.route('/api/business-partners')
+@login_required
+def get_business_partners():
+    """API endpoint to get business partners from SAP B1"""
+    try:
+        sap = SAPIntegration()
+        business_partners = sap.get_business_partners()
+        
+        if business_partners:
+            return jsonify({
+                'success': True,
+                'business_partners': business_partners
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to retrieve business partners from SAP B1'
+            }), 500
+            
+    except Exception as e:
+        logging.error(f"Error getting business partners: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @invoice_bp.route('/api/lookup_serial', methods=['POST'])
 @login_required
 def lookup_serial():

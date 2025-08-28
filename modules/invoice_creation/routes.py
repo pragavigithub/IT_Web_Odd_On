@@ -48,13 +48,12 @@ def create():
                     return jsonify({'success': False, 'error': 'Please add at least one serial item'}), 400
                 
                 # Create invoice document
-                invoice = InvoiceDocument(
-                    user_id=current_user.id,
-                    customer_code=customer_code,
-                    invoice_date=datetime.strptime(invoice_date, '%Y-%m-%d').date() if invoice_date else datetime.now().date(),
-                    status='draft',
-                    total_amount=0.0
-                )
+                invoice = InvoiceDocument()
+                invoice.user_id = current_user.id
+                invoice.customer_code = customer_code
+                invoice.doc_date = datetime.strptime(invoice_date, '%Y-%m-%d').date() if invoice_date else datetime.now().date()
+                invoice.status = 'draft'
+                invoice.total_amount = 0.0
                 
                 db.session.add(invoice)
                 db.session.flush()  # Get the invoice ID
@@ -63,15 +62,14 @@ def create():
                 total_amount = 0.0
                 for item_data in serial_items:
                     # Store serial number lookup data first
-                    serial_lookup = SerialNumberLookup(
-                        invoice_id=invoice.id,
-                        serial_number=item_data.get('serial_number'),
-                        item_code=item_data.get('item_code'),
-                        item_name=item_data.get('item_name'),
-                        warehouse=item_data.get('warehouse'),
-                        validation_status='validated',
-                        sap_response=json.dumps(item_data)
-                    )
+                    serial_lookup = SerialNumberLookup()
+                    serial_lookup.serial_number = item_data.get('serial_number')
+                    serial_lookup.item_code = item_data.get('item_code')
+                    serial_lookup.item_name = item_data.get('item_name')
+                    serial_lookup.warehouse_code = item_data.get('warehouse')
+                    serial_lookup.lookup_status = 'validated'
+                    serial_lookup.sap_response = json.dumps(item_data)
+                    serial_lookup.last_updated = datetime.utcnow()
                     db.session.add(serial_lookup)
                 
                 db.session.commit()
@@ -263,8 +261,8 @@ def lookup_serial():
             }), 500
         
         try:
-            # Use the SQL Query API as specified by user
-            url = f"{sap.base_url}/b1s/v1/SQLQueries('Invoice_creation')/List"
+            # Use the SQL Query API as specified by user (Note: 'Invoise_creation' is the correct SAP query name)
+            url = f"{sap.base_url}/b1s/v1/SQLQueries('Invoise_creation')/List"
             payload = {
                 "ParamList": f"serial_number='{serial_number}'"
             }
@@ -288,6 +286,8 @@ def lookup_serial():
                         cached_lookup.warehouse_name = item_data.get('WhsName')
                         cached_lookup.branch_id = item_data.get('BPLid')
                         cached_lookup.branch_name = item_data.get('BPLName')
+                        cached_lookup.lookup_status = 'validated'
+                        cached_lookup.sap_response = json.dumps(item_data)
                         cached_lookup.last_updated = datetime.utcnow()
                     else:
                         cached_lookup = SerialNumberLookup()
@@ -298,6 +298,9 @@ def lookup_serial():
                         cached_lookup.warehouse_name = item_data.get('WhsName')
                         cached_lookup.branch_id = item_data.get('BPLid')
                         cached_lookup.branch_name = item_data.get('BPLName')
+                        cached_lookup.lookup_status = 'validated'
+                        cached_lookup.sap_response = json.dumps(item_data)
+                        cached_lookup.last_updated = datetime.utcnow()
                         db.session.add(cached_lookup)
                     
                     db.session.commit()

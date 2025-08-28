@@ -77,5 +77,8 @@ class SerialNumberLookup(db.Model):
     warehouse_name = db.Column(db.String(100))
     branch_id = db.Column(db.Integer)
     branch_name = db.Column(db.String(100))
+    lookup_status = db.Column(db.String(20), default='pending')  # pending, validated, failed
+    lookup_error = db.Column(db.Text)
+    sap_response = db.Column(db.Text)  # Store SAP response JSON
     last_updated = db.Column(db.DateTime, default=datetime.utcnow)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

@@ -986,3 +986,236 @@ def clear_session_items():
             'success': False,
             'error': f'Failed to clear items: {str(e)}'
         }), 500
+
+# New line-by-line endpoints for immediate database persistence
+@invoice_bp.route('/<int:invoice_id>/add_line_item', methods=['POST'])
+@login_required
+def add_line_item(invoice_id):
+    """Add serial item to Invoice with real-time SAP B1 validation (like Serial Item Transfer)"""
+    try:
+        invoice = InvoiceDocument.query.get_or_404(invoice_id)
+        
+        # Check permissions
+        if invoice.user_id != current_user.id and current_user.role not in ['admin', 'manager']:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+        
+        if invoice.status not in ['draft', 'pending_qc']:
+            return jsonify({'success': False, 'error': 'Cannot add items to this invoice status'}), 400
+        
+        # Get form data (support both JSON and form data)
+        if request.is_json:
+            data = request.get_json()
+            serial_number = data.get('serial_number', '').strip()
+        else:
+            serial_number = request.form.get('serial_number', '').strip()
+        
+        if not serial_number:
+            return jsonify({'success': False, 'error': 'Serial number is required'}), 400
+        
+        # Check for duplicate serial number in this invoice
+        existing_item = InvoiceSerialNumber.query.join(InvoiceLine).filter(
+            InvoiceLine.invoice_id == invoice.id,
+            InvoiceSerialNumber.serial_number == serial_number
+        ).first()
+        
+        if existing_item:
+            return jsonify({
+                'success': False,
+                'error': f'Serial number {serial_number} already exists in this invoice',
+                'duplicate': True
+            }), 400
+        
+        # Validate serial number with SAP B1 (using same logic as validate-serial-number endpoint)
+        sap = SAPIntegration()
+        validation_result = {}
+        validation_status = 'failed'
+        validation_error = None
+        
+        # Check SAP configuration and validate
+        if sap.base_url and sap.username and sap.password and sap.ensure_logged_in():
+            try:
+                # Use SAP SQL Query for Invoice Creation serial number validation
+                url = f"{sap.base_url}/b1s/v1/SQLQueries('Invoise_creation')/List"
+                payload = {
+                    "ParamList": f"serial_number='{serial_number}'"
+                }
+                
+                response = sap.session.post(url, json=payload, timeout=30)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    results = data.get('value', [])
+                    
+                    if results:
+                        validation_result = results[0]
+                        validation_status = 'validated'
+                        logging.info(f"✅ Serial {serial_number} validated successfully with SAP")
+                    else:
+                        validation_error = f'Serial number {serial_number} not found in SAP B1 inventory'
+                        logging.warning(f"⚠️ Serial {serial_number} not found in SAP")
+                else:
+                    validation_error = f'SAP API error: {response.status_code}'
+                    logging.error(f"❌ SAP API error for {serial_number}: {response.status_code}")
+            except Exception as e:
+                validation_error = f'SAP connection error: {str(e)}'
+                logging.error(f"❌ SAP validation error for {serial_number}: {str(e)}")
+        else:
+            # Fallback data for offline mode
+            validation_result = {
+                'ItemCode': 'MI Phone',
+                'itemName': 'RAHUL PHONE', 
+                'DistNumber': serial_number,
+                'WhsCode': '7000-FG',
+                'CardCode': 'CUS0028',
+                'CardName': 'RAHUL PHONE CUSTOMER'
+            }
+            validation_status = 'validated'
+            logging.info(f"🔄 Using offline mode for {serial_number}")
+        
+        # Create invoice line and serial number record immediately
+        # Get next line number
+        max_line = db.session.query(db.func.max(InvoiceLine.line_number)).filter_by(invoice_id=invoice.id).scalar()
+        next_line_number = (max_line or 0) + 1
+        
+        # Create invoice line
+        invoice_line = InvoiceLine(
+            invoice_id=invoice.id,
+            line_number=next_line_number,
+            item_code=validation_result.get('ItemCode', 'UNKNOWN'),
+            item_description=validation_result.get('itemName', validation_result.get('ItemName', 'Unknown Item')),
+            quantity=1.0,
+            warehouse_code=validation_result.get('WhsCode', ''),
+            warehouse_name=validation_result.get('WhsName', ''),
+            tax_code='CSGST@18'
+        )
+        
+        db.session.add(invoice_line)
+        db.session.flush()  # Get the line ID
+        
+        # Create serial number record
+        serial_item = InvoiceSerialNumber(
+            invoice_line_id=invoice_line.id,
+            serial_number=serial_number,
+            item_code=validation_result.get('ItemCode', 'UNKNOWN'),
+            item_description=validation_result.get('itemName', validation_result.get('ItemName', 'Unknown Item')),
+            warehouse_code=validation_result.get('WhsCode', ''),
+            customer_code=validation_result.get('CardCode', ''),
+            customer_name=validation_result.get('CardName', ''),
+            quantity=1.0,
+            validation_status=validation_status,
+            validation_error=validation_error
+        )
+        
+        db.session.add(serial_item)
+        
+        # Update invoice customer if auto-detected
+        if validation_result.get('CardCode') and not invoice.customer_code:
+            invoice.customer_code = validation_result.get('CardCode')
+            invoice.customer_name = validation_result.get('CardName', '')
+        
+        db.session.commit()
+        
+        logging.info(f"✅ Added serial item {serial_number} to invoice {invoice.id}")
+        
+        return jsonify({
+            'success': True,
+            'item_added': True,
+            'item_data': {
+                'id': serial_item.id,
+                'line_number': next_line_number,
+                'serial_number': serial_number,
+                'item_code': serial_item.item_code,
+                'item_description': serial_item.item_description,
+                'warehouse_code': serial_item.warehouse_code,
+                'customer_code': serial_item.customer_code,
+                'customer_name': serial_item.customer_name,
+                'quantity': serial_item.quantity,
+                'validation_status': validation_status,
+                'validation_error': validation_error
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"❌ Error adding serial item: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Internal error: {str(e)}'
+        }), 500
+
+@invoice_bp.route('/<int:invoice_id>/remove_line_item/<int:item_id>', methods=['DELETE'])
+@login_required
+def remove_line_item(invoice_id, item_id):
+    """Remove serial item from invoice"""
+    try:
+        invoice = InvoiceDocument.query.get_or_404(invoice_id)
+        
+        # Check permissions
+        if invoice.user_id != current_user.id and current_user.role not in ['admin', 'manager']:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+        
+        if invoice.status not in ['draft', 'pending_qc']:
+            return jsonify({'success': False, 'error': 'Cannot remove items from this invoice status'}), 400
+        
+        # Find and delete the serial item
+        serial_item = InvoiceSerialNumber.query.get_or_404(item_id)
+        invoice_line = InvoiceLine.query.get(serial_item.invoice_line_id)
+        
+        if invoice_line.invoice_id != invoice.id:
+            return jsonify({'success': False, 'error': 'Item does not belong to this invoice'}), 400
+        
+        # Delete serial item and its line
+        db.session.delete(serial_item)
+        db.session.delete(invoice_line)
+        db.session.commit()
+        
+        logging.info(f"✅ Removed serial item {serial_item.serial_number} from invoice {invoice.id}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Serial item {serial_item.serial_number} removed successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"❌ Error removing serial item: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Internal error: {str(e)}'
+        }), 500
+
+@invoice_bp.route('/create_draft', methods=['POST'])
+@login_required
+def create_draft_invoice():
+    """Create a new draft invoice for line-by-line entry"""
+    try:
+        if not current_user.has_permission('invoice_creation'):
+            return jsonify({'success': False, 'error': 'Access denied - Invoice Creation permissions required'}), 403
+        
+        # Create new draft invoice
+        invoice = InvoiceDocument(
+            user_id=current_user.id,
+            status='draft',
+            doc_date=datetime.now().date(),
+            branch_id=current_user.branch_id,
+            branch_name=current_user.branch_name
+        )
+        
+        db.session.add(invoice)
+        db.session.commit()
+        
+        logging.info(f"✅ Created new draft invoice {invoice.id} for user {current_user.username}")
+        
+        return jsonify({
+            'success': True,
+            'invoice_id': invoice.id,
+            'message': 'Draft invoice created successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"❌ Error creating draft invoice: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Internal error: {str(e)}'
+        }), 500

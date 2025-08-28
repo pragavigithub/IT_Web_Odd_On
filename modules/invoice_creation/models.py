@@ -61,9 +61,17 @@ class InvoiceSerialNumber(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     invoice_line_id = db.Column(db.Integer, db.ForeignKey('invoice_lines.id'), nullable=False)
     serial_number = db.Column(db.String(100), nullable=False)
+    item_code = db.Column(db.String(50), nullable=False)  # Auto-populated from SAP validation
+    item_description = db.Column(db.String(200))  # Auto-populated from SAP validation
+    warehouse_code = db.Column(db.String(10))  # From SAP validation
+    customer_code = db.Column(db.String(20))  # Auto-populated from SAP validation
+    customer_name = db.Column(db.String(100))  # Auto-populated from SAP validation
     base_line_number = db.Column(db.Integer, default=0)
     quantity = db.Column(db.Numeric(15, 3), default=1.0)
+    validation_status = db.Column(db.String(20), default='pending')  # pending, validated, failed
+    validation_error = db.Column(db.Text)  # Error message if validation fails
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class SerialNumberLookup(db.Model):
     """Cache for serial number lookups from SAP"""

@@ -307,8 +307,25 @@ $(document).ready(function() {
                     window.currentSerialData.serialNumber = serialNumber;
                     console.log('Serial data validated and stored:', response.item_data);
                     
+                    // Auto-fill customer if CardCode is available
+                    if (response.item_data.CardCode && response.item_data.CardCode !== '') {
+                        let customerSelect = $('#customerCode');
+                        let existingOption = customerSelect.find(`option[value="${response.item_data.CardCode}"]`);
+                        
+                        if (existingOption.length > 0) {
+                            customerSelect.val(response.item_data.CardCode);
+                            console.log('Auto-filled customer:', response.item_data.CardCode);
+                        } else {
+                            // Add customer option if not exists
+                            let customerName = response.item_data.CardName || response.item_data.CustomerName || 'Unknown Customer';
+                            customerSelect.append(`<option value="${response.item_data.CardCode}">${response.item_data.CardCode} - ${customerName}</option>`);
+                            customerSelect.val(response.item_data.CardCode);
+                            console.log('Added and auto-filled customer:', response.item_data.CardCode);
+                        }
+                    }
+                    
                     // Show success message
-                    showTemporaryMessage(`Serial number "${serialNumber}" validated successfully! Press Enter to add.`, 'success');
+                    showTemporaryMessage(`Serial number "${serialNumber}" validated successfully! Customer auto-filled. Press Enter to add.`, 'success');
                 } else {
                     console.warn('Serial number not found:', response.error || 'Unknown error');
                     showTemporaryMessage(`Serial number "${serialNumber}" not found in SAP B1 inventory.`, 'warning');

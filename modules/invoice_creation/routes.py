@@ -180,7 +180,7 @@ def validate_serial_number():
                 results = data.get('value', [])
                 
                 if results:
-                    # Return the first result with item details
+                    # Return the first result with item details AND customer information
                     item_data = results[0]
                     return jsonify({
                         'success': True,
@@ -191,7 +191,11 @@ def validate_serial_number():
                             'WhsCode': item_data.get('WhsCode', ''),
                             'WhsName': item_data.get('WhsName', ''),
                             'BPLName': item_data.get('BPLName', ''),
-                            'BPLid': item_data.get('BPLid', '')
+                            'BPLid': item_data.get('BPLid', ''),
+                            'CardCode': item_data.get('CardCode', ''),
+                            'CardName': item_data.get('CardName', ''),
+                            'CustomerCode': item_data.get('CardCode', ''),
+                            'CustomerName': item_data.get('CardName', '')
                         }
                     })
                 else:
@@ -531,45 +535,4 @@ def create_invoice():
             'message': f'Internal error: {str(e)}'
         }), 500
 
-@invoice_bp.route('/api/get_customers', methods=['GET'])
-@login_required
-def get_customers():
-    """API endpoint to get customer list from SAP"""
-    try:
-        sap = SAPIntegration()
-        if not sap.ensure_logged_in():
-            return jsonify({
-                'success': False,
-                'message': 'SAP connection failed'
-            }), 500
-        
-        try:
-            url = f"{sap.base_url}/b1s/v1/BusinessPartners?$filter=CardType eq 'cCustomer'&$select=CardCode,CardName&$top=100"
-            response = sap.session.get(url, timeout=30)
-            
-            if response.status_code == 200:
-                data = response.json()
-                customers = data.get('value', [])
-                return jsonify({
-                    'success': True,
-                    'customers': customers
-                })
-            else:
-                return jsonify({
-                    'success': False,
-                    'message': f'Failed to get customers: {response.status_code}'
-                }), 500
-        
-        except Exception as e:
-            logging.error(f"Error getting customers from SAP: {str(e)}")
-            return jsonify({
-                'success': False,
-                'message': f'SAP error: {str(e)}'
-            }), 500
-            
-    except Exception as e:
-        logging.error(f"Error in get_customers API: {str(e)}")
-        return jsonify({
-            'success': False,
-            'message': f'Internal error: {str(e)}'
-        }), 500
+# REMOVED: Duplicate get_customers endpoint - using business-partners instead

@@ -51,7 +51,7 @@
                                 <label for="serialNumberInput">Enter Serial Number</label>
                                 <div class="input-group">
                                     <input type="text" class="form-control" id="serialNumberInput" 
-                                           placeholder="Enter serial number and press Enter">
+                                           placeholder="Enter serial number and press Tab to auto-fetch details">
                                     <div class="input-group-append">
                                         <button class="btn btn-primary" type="button" id="addSerialBtn">
                                             <i class="fas fa-plus"></i> Add
@@ -92,7 +92,8 @@
                         <div class="card-body">
                             <ol class="small">
                                 <li>Select a customer from the dropdown</li>
-                                <li>Enter serial numbers one by one</li>
+                                <li>Enter serial number and press <kbd>Tab</kbd> to auto-fetch details</li>
+                                <li>Press <kbd>Enter</kbd> to add the serial number</li>
                                 <li>System will automatically group items</li>
                                 <li>Review the summary and create invoice</li>
                             </ol>
@@ -129,8 +130,11 @@ $(document).ready(function() {
     loadBusinessPartners();
 
     // Serial number input handling
-    $('#serialNumberInput').on('keypress', function(e) {
-        if (e.which === 13) { // Enter key
+    $('#serialNumberInput').on('keydown', function(e) {
+        if (e.which === 9) { // Tab key
+            e.preventDefault();
+            autoFetchSerialDetails();
+        } else if (e.which === 13) { // Enter key
             e.preventDefault();
             addSerialNumber();
         }
@@ -167,6 +171,57 @@ $(document).ready(function() {
         });
     }
 
+    function autoFetchSerialDetails() {
+        let serialNumber = $('#serialNumberInput').val().trim();
+        if (!serialNumber) {
+            alert('Please enter a serial number first');
+            return;
+        }
+
+        showLoading('Fetching serial number details...');
+
+        $.ajax({
+            url: '/invoice_creation/api/validate-serial-number',
+            method: 'GET',
+            data: { serial_number: serialNumber },
+            success: function(response) {
+                hideLoading();
+                if (response.success) {
+                    // Display item details below the input
+                    let itemData = response.item_data;
+                    let detailsHtml = `
+                        <div class="alert alert-info mt-2" id="serialDetails">
+                            <h6><i class="fas fa-info-circle"></i> Serial Number Details:</h6>
+                            <p class="mb-1"><strong>Item Code:</strong> ${itemData.ItemCode}</p>
+                            <p class="mb-1"><strong>Item Name:</strong> ${itemData.ItemName}</p>
+                            <p class="mb-1"><strong>Warehouse:</strong> ${itemData.WhsCode} - ${itemData.WhsName}</p>
+                            <p class="mb-0"><strong>Branch:</strong> ${itemData.BPLName}</p>
+                        </div>
+                    `;
+                    
+                    // Remove existing details and add new ones
+                    $('#serialDetails').remove();
+                    $('#serialNumberInput').closest('.form-group').append(detailsHtml);
+                    
+                    // Store the fetched data for later use
+                    window.currentSerialData = itemData;
+                } else {
+                    alert('Error: ' + response.error);
+                    $('#serialDetails').remove();
+                }
+            },
+            error: function(xhr, status, error) {
+                hideLoading();
+                let errorMessage = 'Error fetching serial number details';
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMessage = xhr.responseJSON.error;
+                }
+                alert(errorMessage);
+                $('#serialDetails').remove();
+            }
+        });
+    }
+
     function addSerialNumber() {
         let serialNumber = $('#serialNumberInput').val().trim();
         if (!serialNumber) {
@@ -181,32 +236,45 @@ $(document).ready(function() {
 
         showLoading('Looking up serial number...');
 
-        $.ajax({
-            url: '/invoice_creation/api/lookup_serial',
-            method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({ serial_number: serialNumber }),
-            success: function(response) {
-                hideLoading();
-                if (response.success) {
-                    serialNumbers.push(serialNumber);
-                    serialLookupData[serialNumber] = response.data;
-                    $('#serialNumberInput').val('');
-                    updateSerialNumbersList();
-                    updateInvoiceSummary();
-                } else {
-                    alert('Error: ' + response.message);
+        // Use pre-fetched data if available, otherwise fetch it
+        if (window.currentSerialData && window.currentSerialData.DistNumber === serialNumber) {
+            // Use the already fetched data
+            serialNumbers.push(serialNumber);
+            serialLookupData[serialNumber] = window.currentSerialData;
+            $('#serialNumberInput').val('');
+            $('#serialDetails').remove();
+            updateSerialNumbersList();
+            updateInvoiceSummary();
+            window.currentSerialData = null; // Clear the stored data
+        } else {
+            // Fetch data first
+            $.ajax({
+                url: '/invoice_creation/api/validate-serial-number',
+                method: 'GET',
+                data: { serial_number: serialNumber },
+                success: function(response) {
+                    hideLoading();
+                    if (response.success) {
+                        serialNumbers.push(serialNumber);
+                        serialLookupData[serialNumber] = response.item_data;
+                        $('#serialNumberInput').val('');
+                        $('#serialDetails').remove();
+                        updateSerialNumbersList();
+                        updateInvoiceSummary();
+                    } else {
+                        alert('Error: ' + response.error);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    hideLoading();
+                    let errorMessage = 'Error validating serial number';
+                    if (xhr.responseJSON && xhr.responseJSON.error) {
+                        errorMessage = xhr.responseJSON.error;
+                    }
+                    alert(errorMessage);
                 }
-            },
-            error: function(xhr, status, error) {
-                hideLoading();
-                let errorMessage = 'Error looking up serial number';
-                if (xhr.responseJSON && xhr.responseJSON.message) {
-                    errorMessage = xhr.responseJSON.message;
-                }
-                alert(errorMessage);
-            }
-        });
+            });
+        }
     }
 
     function removeSerialNumber(serialNumber) {

@@ -60,8 +60,10 @@ def get_business_partners():
             }), 500
         
         try:
-            url = f"{sap.base_url}/b1s/v1/BusinessPartners?$filter=CardType eq 'cCustomer'&$select=CardCode,CardName&$top=100"
-            response = sap.session.get(url, timeout=30)
+            # Get all business partners with proper header for unlimited results
+            url = f"{sap.base_url}/b1s/v1/BusinessPartners?$select=CardCode,CardName"
+            headers = {"Prefer": "odata.maxpagesize=0"}
+            response = sap.session.get(url, headers=headers, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
@@ -73,21 +75,91 @@ def get_business_partners():
             else:
                 return jsonify({
                     'success': False,
-                    'error': f'Failed to get business partners: {response.status_code}'
+                    'error': f'SAP API error: {response.status_code}'
                 }), 500
-        
         except Exception as e:
-            logging.error(f"Error getting business partners from SAP: {str(e)}")
+            logging.error(f"Error fetching business partners: {str(e)}")
             return jsonify({
                 'success': False,
-                'error': f'SAP error: {str(e)}'
+                'error': f'Request failed: {str(e)}'
             }), 500
-            
     except Exception as e:
-        logging.error(f"Error getting business partners: {e}")
+        logging.error(f"Business partners API error: {str(e)}")
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': 'Internal server error'
+        }), 500
+
+@invoice_bp.route('/api/validate-serial-number')
+@login_required
+def validate_serial_number():
+    """API endpoint to validate serial number and fetch item details from SAP B1"""
+    serial_number = request.args.get('serial_number', '').strip()
+    
+    if not serial_number:
+        return jsonify({
+            'success': False,
+            'error': 'Serial number is required'
+        }), 400
+    
+    try:
+        sap = SAPIntegration()
+        if not sap.ensure_logged_in():
+            return jsonify({
+                'success': False,
+                'error': 'SAP connection failed'
+            }), 500
+        
+        try:
+            # Use SAP SQL Query for Invoice Creation serial number validation
+            url = f"{sap.base_url}/b1s/v1/SQLQueries('Invoice_creation')/List"
+            payload = {
+                "ParamList": f"serial_number='{serial_number}'"
+            }
+            
+            response = sap.session.post(url, json=payload, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                results = data.get('value', [])
+                
+                if results:
+                    # Return the first result with item details
+                    item_data = results[0]
+                    return jsonify({
+                        'success': True,
+                        'item_data': {
+                            'ItemCode': item_data.get('ItemCode', ''),
+                            'ItemName': item_data.get('itemName', ''),
+                            'DistNumber': item_data.get('DistNumber', ''),
+                            'WhsCode': item_data.get('WhsCode', ''),
+                            'WhsName': item_data.get('WhsName', ''),
+                            'BPLName': item_data.get('BPLName', ''),
+                            'BPLid': item_data.get('BPLid', '')
+                        }
+                    })
+                else:
+                    return jsonify({
+                        'success': False,
+                        'error': 'Serial number not found or has no available quantity'
+                    })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': f'SAP API error: {response.status_code} - {response.text}'
+                }), 500
+                
+        except Exception as e:
+            logging.error(f"Error validating serial number: {str(e)}")
+            return jsonify({
+                'success': False,
+                'error': f'Validation request failed: {str(e)}'
+            }), 500
+    except Exception as e:
+        logging.error(f"Serial number validation API error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Internal server error'
         }), 500
 
 @invoice_bp.route('/api/lookup_serial', methods=['POST'])

@@ -80,6 +80,13 @@
                     </a>
                 </li>
                 {% endif %}
+                {% if current_user.has_permission('invoice_creation') %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('invoice_creation.index') }}">
+                        <i data-feather="file-text"></i> Invoice Creation
+                    </a>
+                </li>
+                {% endif %}
                 <!--                    {% if current_user.has_permission('pick_list') %}-->
                 <!--                    <li class="nav-item">-->
                 <!--                        <a class="nav-link" href="{{ url_for('pick_list') }}">-->

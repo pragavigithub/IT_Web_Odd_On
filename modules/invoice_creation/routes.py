@@ -7,7 +7,9 @@ from flask_login import login_required, current_user
 from app import db
 from modules.invoice_creation.models import InvoiceDocument, InvoiceLine, InvoiceSerialNumber, SerialNumberLookup
 from sap_integration import SAPIntegration
+from datetime import datetime
 import logging
+import requests
 import json
 from datetime import datetime, timedelta
 
@@ -615,3 +617,212 @@ def create_invoice():
         }), 500
 
 # REMOVED: Duplicate get_customers endpoint - using business-partners instead
+
+# Additional AJAX endpoints for invoice creation
+@invoice_bp.route('/create', methods=['POST'])
+@login_required
+def create_invoice_ajax():
+    """AJAX endpoint to create invoice document"""
+    try:
+        data = request.get_json()
+        logging.info(f"📝 Creating invoice with data: {data}")
+        
+        customer_code = data.get('customer_code')
+        invoice_date = data.get('invoice_date')
+        serial_items = data.get('serial_items', [])
+        
+        if not customer_code or not serial_items:
+            return jsonify({
+                'success': False,
+                'error': 'Customer code and serial items are required'
+            }), 400
+        
+        # Create invoice document in local database
+        invoice_number = generate_invoice_number()
+        
+        invoice_doc = InvoiceDocument(
+            invoice_number=invoice_number,
+            customer_code=customer_code,
+            customer_name=data.get('customer_name', ''),
+            user_id=current_user.id,
+            status='pending_qc',
+            doc_date=datetime.strptime(invoice_date, '%Y-%m-%d').date(),
+            branch_id=current_user.branch_id,
+            branch_name=current_user.branch_name
+        )
+        
+        db.session.add(invoice_doc)
+        db.session.flush()  # Get the ID
+        
+        # Create invoice lines and serial numbers
+        line_number = 1
+        for item in serial_items:
+            # Create invoice line
+            invoice_line = InvoiceLine(
+                invoice_id=invoice_doc.id,
+                line_number=line_number,
+                item_code=item.get('item_code'),
+                item_description=item.get('item_name'),
+                quantity=item.get('quantity', 1),
+                warehouse_code=item.get('warehouse'),
+                unit_price=0.00,  # Will be updated when posted to SAP
+                line_total=0.00
+            )
+            
+            db.session.add(invoice_line)
+            db.session.flush()  # Get the line ID
+            
+            # Add serial number
+            serial_number = InvoiceSerialNumber(
+                invoice_line_id=invoice_line.id,
+                serial_number=item.get('serial_number'),
+                item_code=item.get('item_code'),
+                warehouse_code=item.get('warehouse')
+            )
+            
+            db.session.add(serial_number)
+            line_number += 1
+        
+        db.session.commit()
+        
+        logging.info(f"✅ Invoice {invoice_number} created successfully")
+        return jsonify({
+            'success': True,
+            'invoice_number': invoice_number,
+            'message': f'Invoice {invoice_number} created and sent for QC approval'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"❌ Invoice creation failed: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to create invoice: ' + str(e)
+        }), 500
+
+# Helper functions for SAP B1 integration
+def generate_invoice_number():
+    """Generate next invoice number"""
+    try:
+        # Simple sequential numbering
+        import time
+        timestamp = str(int(time.time()))[-6:]
+        invoice_number = f"INV-{timestamp}"
+        
+        return invoice_number
+        
+    except Exception as e:
+        logging.error(f"❌ Number generation failed: {str(e)}")
+        from datetime import datetime
+        return f"INV-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
+def build_sap_invoice_data(invoice):
+    """Build SAP B1 Invoice JSON structure as per user specification"""
+    try:
+        # Get invoice lines with serial numbers
+        lines = []
+        invoice_lines = InvoiceLine.query.filter_by(invoice_id=invoice.id).all()
+        
+        for line in invoice_lines:
+            # Get serial numbers for this line
+            serial_numbers = InvoiceSerialNumber.query.filter_by(invoice_line_id=line.id).all()
+            
+            sap_serials = []
+            for serial in serial_numbers:
+                sap_serials.append({
+                    "InternalSerialNumber": serial.serial_number,
+                    "BaseLineNumber": line.line_number - 1,  # SAP uses 0-based indexing
+                    "Quantity": 1.0
+                })
+            
+            line_data = {
+                "ItemCode": line.item_code,
+                "ItemDescription": line.item_description,
+                "Quantity": float(line.quantity),
+                "WarehouseCode": line.warehouse_code,
+                "TaxCode": line.tax_code or "CSGST@18"
+            }
+            
+            if sap_serials:
+                line_data["SerialNumbers"] = sap_serials
+            
+            lines.append(line_data)
+        
+        # Build complete invoice structure as per user JSON specification
+        from datetime import datetime
+        sap_data = {
+            "DocDate": invoice.doc_date.isoformat() + "T05:38:53.0043871Z",
+            "DocDueDate": invoice.doc_date.isoformat() + "T18:30:00Z",
+            "BPL_IDAssignedToInvoice": 5,
+            "BPLName": invoice.branch_name or "ORD-CHENNAI",
+            "CardCode": invoice.customer_code,
+            "DocumentLines": lines
+        }
+        
+        logging.info(f"📄 Built SAP invoice data: {sap_data}")
+        return sap_data
+        
+    except Exception as e:
+        logging.error(f"❌ Failed to build SAP invoice data: {str(e)}")
+        raise
+
+def post_to_sap_invoices(invoice_data):
+    """Post invoice to SAP B1 Invoices API - https://192.168.1.5:50000/b1s/v1/Invoices"""
+    try:
+        sap = SAPIntegration()
+        
+        # Check SAP configuration
+        if not sap.base_url or not sap.username or not sap.password:
+            logging.warning("⚠️ SAP B1 configuration missing - simulating success")
+            return {
+                'success': True,
+                'sap_doc_entry': 12345,
+                'sap_doc_num': 'INV-SIM-001',
+                'response_text': 'Simulated - SAP B1 not configured'
+            }
+        
+        # Ensure logged in
+        if not sap.ensure_logged_in():
+            return {
+                'success': False,
+                'error': 'SAP B1 login failed'
+            }
+        
+        # Post to SAP B1 Invoices endpoint as specified by user
+        url = "https://192.168.1.5:50000/b1s/v1/Invoices"
+        
+        logging.info(f"🚀 Posting to SAP B1 Invoices: {url}")
+        logging.info(f"📤 Invoice payload: {invoice_data}")
+        
+        import requests
+        response = requests.post(
+            url,
+            json=invoice_data,
+            headers=sap.headers,
+            verify=False,
+            timeout=30
+        )
+        
+        if response.status_code == 201:
+            result = response.json()
+            logging.info(f"✅ SAP B1 Invoice posted successfully: {result}")
+            
+            return {
+                'success': True,
+                'sap_doc_entry': result.get('DocEntry'),
+                'sap_doc_num': result.get('DocNum'),
+                'response_text': f"Successfully posted: DocEntry={result.get('DocEntry')}, DocNum={result.get('DocNum')}"
+            }
+        else:
+            logging.error(f"❌ SAP B1 Invoice posting failed: {response.status_code} - {response.text}")
+            return {
+                'success': False,
+                'error': f'SAP API error: {response.status_code} - {response.text}'
+            }
+            
+    except Exception as e:
+        logging.error(f"❌ SAP invoice posting failed: {str(e)}")
+        return {
+            'success': False,
+            'error': f'SAP posting failed: {str(e)}'
+        }

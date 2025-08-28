@@ -384,24 +384,28 @@ function initializeInvoiceCreation() {
         }
 
         let itemData = window.currentSerialData;
+        console.log('🔍 Current serial data for adding:', itemData);
         
         if (itemData) {
             // Add validated item
-            serialNumbers.push({
+            const newItem = {
                 line: currentLine,
                 serialNumber: serialNumber,
-                itemCode: itemData.ItemCode,
-                itemName: itemData.ItemName,
-                fromWH: itemData.WhsCode,
+                itemCode: itemData.ItemCode || 'N/A',
+                itemName: itemData.ItemName || itemData.itemName || 'N/A',
+                fromWH: itemData.WhsCode || 'N/A',
                 toWH: '', // Empty for invoice
                 validation: 'Valid',
                 qty: 1,
                 status: 'validated'
-            });
-            console.log('Added validated serial number:', serialNumber);
+            };
+            
+            serialNumbers.push(newItem);
+            console.log('✅ Added validated serial number:', serialNumber, newItem);
+            showTemporaryMessage(`✅ Added "${serialNumber}" to invoice!`, 'success');
         } else {
             // Add unvalidated item
-            serialNumbers.push({
+            const newItem = {
                 line: currentLine,
                 serialNumber: serialNumber,
                 itemCode: 'N/A',
@@ -411,13 +415,19 @@ function initializeInvoiceCreation() {
                 validation: 'Failed',
                 qty: 0,
                 status: 'failed'
-            });
-            console.log('Added failed serial number:', serialNumber);
+            };
+            
+            serialNumbers.push(newItem);
+            console.log('⚠️ Added failed serial number:', serialNumber, newItem);
+            showTemporaryMessage(`⚠️ Added "${serialNumber}" without validation!`, 'warning');
         }
 
+        // Force update all displays
         updateSerialItemsTable();
         updateSummaryCards();
         updateItemCount();
+        
+        console.log('📊 Current serialNumbers array:', serialNumbers);
         
         // Clear input and move to next line
         $('#serialNumberInput').val('');
@@ -429,18 +439,25 @@ function initializeInvoiceCreation() {
         // Enable submit button if there are validated items
         const hasValidItems = serialNumbers.some(item => item.status === 'validated');
         $('#submitForQCBtn').prop('disabled', !hasValidItems);
+        
+        // Focus back to input for next entry
+        $('#serialNumberInput').focus();
     }
 
     function updateSerialItemsTable() {
+        console.log('🔄 Updating Serial Items Table with', serialNumbers.length, 'items');
+        
         const tbody = $('#serialItemsBody');
         const noItemsMessage = $('#noItemsMessage');
         
         if (serialNumbers.length === 0) {
+            console.log('📝 No items - showing empty message');
             tbody.empty();
             noItemsMessage.show();
             return;
         }
         
+        console.log('📋 Adding', serialNumbers.length, 'items to table');
         noItemsMessage.hide();
         tbody.empty();
         
@@ -450,18 +467,18 @@ function initializeInvoiceCreation() {
                 '<span class="badge badge-danger">Failed</span>';
             
             const row = `
-                <tr>
-                    <td>${item.line}</td>
-                    <td>${item.serialNumber}</td>
-                    <td>${item.itemCode}</td>
+                <tr class="table-row-item">
+                    <td><strong>${item.line}</strong></td>
+                    <td><code>${item.serialNumber}</code></td>
+                    <td><strong>${item.itemCode}</strong></td>
                     <td>${item.itemName}</td>
-                    <td>${item.fromWH}</td>
-                    <td>${item.toWH}</td>
+                    <td><span class="badge badge-info">${item.fromWH}</span></td>
+                    <td><span class="badge badge-secondary">${item.toWH}</span></td>
                     <td>${validationBadge}</td>
-                    <td>${item.qty}</td>
+                    <td><strong>${item.qty}</strong></td>
                     <td>
-                        <button class="btn btn-sm btn-danger" onclick="removeSerial(${index})">
-                            <i data-feather="trash-2"></i> Delete
+                        <button class="btn btn-sm btn-outline-danger" onclick="removeSerial(${index})" title="Remove Item">
+                            <i data-feather="trash-2" style="width: 14px; height: 14px;"></i> Delete
                         </button>
                     </td>
                 </tr>
@@ -470,7 +487,11 @@ function initializeInvoiceCreation() {
         });
         
         // Re-initialize feather icons
-        feather.replace();
+        if (typeof feather !== 'undefined') {
+            feather.replace();
+        }
+        
+        console.log('✅ Table updated successfully');
     }
 
     function updateSummaryCards() {

@@ -377,7 +377,7 @@ function initializeInvoiceCreation() {
             return;
         }
 
-        // Check if serial number already exists
+        // Check if serial number already exists in current array
         if (serialNumbers.some(item => item.serialNumber === serialNumber)) {
             showTemporaryMessage('Serial number already added to this invoice.', 'warning');
             return;
@@ -386,62 +386,87 @@ function initializeInvoiceCreation() {
         let itemData = window.currentSerialData;
         console.log('🔍 Current serial data for adding:', itemData);
         
-        if (itemData) {
-            // Add validated item
-            const newItem = {
-                line: currentLine,
-                serialNumber: serialNumber,
-                itemCode: itemData.ItemCode || 'N/A',
-                itemName: itemData.ItemName || itemData.itemName || 'N/A',
-                fromWH: itemData.WhsCode || 'N/A',
-                toWH: '', // Empty for invoice
-                validation: 'Valid',
-                qty: 1,
-                status: 'validated'
-            };
-            
-            serialNumbers.push(newItem);
-            console.log('✅ Added validated serial number:', serialNumber, newItem);
-            showTemporaryMessage(`✅ Added "${serialNumber}" to invoice!`, 'success');
-        } else {
-            // Add unvalidated item
-            const newItem = {
-                line: currentLine,
-                serialNumber: serialNumber,
-                itemCode: 'N/A',
-                itemName: 'Validation Failed',
-                fromWH: 'N/A',
-                toWH: 'N/A',
-                validation: 'Failed',
-                qty: 0,
-                status: 'failed'
-            };
-            
-            serialNumbers.push(newItem);
-            console.log('⚠️ Added failed serial number:', serialNumber, newItem);
-            showTemporaryMessage(`⚠️ Added "${serialNumber}" without validation!`, 'warning');
+        if (!itemData) {
+            showTemporaryMessage('Please validate the serial number first by pressing Tab.', 'warning');
+            return;
         }
 
-        // Force update all displays
-        updateSerialItemsTable();
-        updateSummaryCards();
-        updateItemCount();
-        
-        console.log('📊 Current serialNumbers array:', serialNumbers);
-        
-        // Clear input and move to next line
-        $('#serialNumberInput').val('');
-        currentLine++;
-        $('#currentLineNumber').text(currentLine);
-        $('#currentLineDisplay').text(currentLine);
-        window.currentSerialData = null;
-        
-        // Enable submit button if there are validated items
-        const hasValidItems = serialNumbers.some(item => item.status === 'validated');
-        $('#submitForQCBtn').prop('disabled', !hasValidItems);
-        
-        // Focus back to input for next entry
-        $('#serialNumberInput').focus();
+        // Make API call to add item (like Serial Item Transfer does)
+        const addData = {
+            serial_number: serialNumber,
+            item_code: itemData.ItemCode || '',
+            item_description: itemData.ItemName || itemData.itemName || '',
+            warehouse_code: itemData.WhsCode || '',
+            customer_code: itemData.CardCode || '',
+            customer_name: itemData.CardName || ''
+        };
+
+        console.log('📤 Adding serial item with data:', addData);
+        showLoading('Adding item to invoice...');
+
+        $.ajax({
+            url: '/invoice_creation/add-serial-item',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(addData),
+            success: function(response) {
+                hideLoading();
+                console.log('✅ Serial item added successfully:', response);
+                
+                if (response.success && response.item_data) {
+                    // Add to local array with complete data
+                    const newItem = {
+                        id: response.item_data.id || Date.now(), // Use timestamp if no ID
+                        line: currentLine,
+                        serialNumber: response.item_data.serial_number,
+                        itemCode: response.item_data.item_code,
+                        itemName: response.item_data.item_description,
+                        fromWH: response.item_data.warehouse_code,
+                        toWH: '', // Empty for invoice
+                        validation: 'Valid',
+                        qty: response.item_data.quantity || 1,
+                        status: 'validated',
+                        customerCode: response.item_data.customer_code || '',
+                        customerName: response.item_data.customer_name || ''
+                    };
+                    
+                    serialNumbers.push(newItem);
+                    console.log('✅ Added to local array:', newItem);
+                    
+                    // Force update all displays
+                    updateSerialItemsTable();
+                    updateSummaryCards();
+                    updateItemCount();
+                    
+                    // Clear input and move to next line
+                    $('#serialNumberInput').val('');
+                    currentLine++;
+                    $('#currentLineNumber').text(currentLine);
+                    $('#currentLineDisplay').text(currentLine);
+                    window.currentSerialData = null;
+                    
+                    // Enable submit button
+                    const hasValidItems = serialNumbers.some(item => item.status === 'validated');
+                    $('#submitForQCBtn').prop('disabled', !hasValidItems);
+                    
+                    // Focus back to input
+                    $('#serialNumberInput').focus();
+                    
+                    showTemporaryMessage(`✅ Added "${serialNumber}" to invoice!`, 'success');
+                } else {
+                    showTemporaryMessage('Failed to add item: ' + (response.error || 'Unknown error'), 'danger');
+                }
+            },
+            error: function(xhr, status, error) {
+                hideLoading();
+                console.error('❌ Failed to add serial item:', error, xhr.responseJSON);
+                let errorMsg = 'Failed to add item to invoice';
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMsg = xhr.responseJSON.error;
+                }
+                showTemporaryMessage(errorMsg, 'danger');
+            }
+        });
     }
 
     function updateSerialItemsTable() {
@@ -515,18 +540,36 @@ function initializeInvoiceCreation() {
         }
         
         if (confirm('Are you sure you want to clear all serial items?')) {
-            serialNumbers = [];
-            currentLine = 1;
-            $('#currentLineNumber').text(currentLine);
-            $('#currentLineDisplay').text(currentLine);
-            $('#serialNumberInput').val('');
+            showLoading('Clearing all items...');
             
-            updateSerialItemsTable();
-            updateSummaryCards();
-            updateItemCount();
-            
-            $('#submitForQCBtn').prop('disabled', true);
-            showTemporaryMessage('All items cleared.', 'info');
+            $.ajax({
+                url: '/invoice_creation/clear-session-items',
+                method: 'POST',
+                success: function(response) {
+                    hideLoading();
+                    if (response.success) {
+                        serialNumbers = [];
+                        currentLine = 1;
+                        $('#currentLineNumber').text(currentLine);
+                        $('#currentLineDisplay').text(currentLine);
+                        $('#serialNumberInput').val('');
+                        
+                        updateSerialItemsTable();
+                        updateSummaryCards();
+                        updateItemCount();
+                        
+                        $('#submitForQCBtn').prop('disabled', true);
+                        showTemporaryMessage('✅ All items cleared.', 'success');
+                    } else {
+                        showTemporaryMessage('Failed to clear items: ' + response.error, 'danger');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    hideLoading();
+                    console.error('❌ Failed to clear items:', error);
+                    showTemporaryMessage('Failed to clear items.', 'danger');
+                }
+            });
         }
     }
 
@@ -545,8 +588,12 @@ function initializeInvoiceCreation() {
             return;
         }
         
+        // Get customer name from selected option
+        const customerName = $('#customerCode option:selected').text().split(' - ')[1] || '';
+        
         const invoiceData = {
             customer_code: customerCode,
+            customer_name: customerName,
             invoice_date: invoiceDate,
             serial_items: validatedItems.map(item => ({
                 serial_number: item.serialNumber,
@@ -557,7 +604,7 @@ function initializeInvoiceCreation() {
             }))
         };
         
-        console.log('Submitting invoice:', invoiceData);
+        console.log('📤 Submitting invoice for QC:', invoiceData);
         showLoading('Creating invoice document...');
         
         $.ajax({
@@ -568,32 +615,77 @@ function initializeInvoiceCreation() {
             success: function(response) {
                 hideLoading();
                 if (response.success) {
-                    showTemporaryMessage('Invoice created successfully!', 'success');
+                    showTemporaryMessage(`✅ Invoice ${response.invoice_number} created and sent for QC approval!`, 'success');
+                    
+                    // Clear session and local data
+                    serialNumbers = [];
+                    currentLine = 1;
+                    $('#currentLineNumber').text(currentLine);
+                    $('#currentLineDisplay').text(currentLine);
+                    $('#serialNumberInput').val('');
+                    $('#customerCode').val('');
+                    
+                    updateSerialItemsTable();
+                    updateSummaryCards();
+                    updateItemCount();
+                    $('#submitForQCBtn').prop('disabled', true);
+                    
+                    // Redirect to invoice list after delay
                     setTimeout(function() {
                         window.location.href = '/invoice_creation/';
-                    }, 2000);
+                    }, 3000);
                 } else {
-                    showTemporaryMessage('Failed to create invoice: ' + response.error, 'danger');
+                    showTemporaryMessage('❌ Failed to create invoice: ' + response.error, 'danger');
                 }
             },
             error: function(xhr, status, error) {
                 hideLoading();
-                console.error('Invoice creation error:', error);
-                showTemporaryMessage('Error creating invoice: ' + error, 'danger');
+                console.error('❌ Invoice creation error:', error, xhr.responseJSON);
+                let errorMsg = 'Error creating invoice';
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMsg = xhr.responseJSON.error;
+                }
+                showTemporaryMessage('❌ ' + errorMsg, 'danger');
             }
         });
     }
 
-    // Global function for removing serial numbers
+    // Global function for removing serial numbers (using item ID like Serial Item Transfer)
     window.removeSerial = function(index) {
-        if (confirm('Are you sure you want to remove this serial number?')) {
-            serialNumbers.splice(index, 1);
-            updateSerialItemsTable();
-            updateSummaryCards();
-            updateItemCount();
+        const item = serialNumbers[index];
+        if (!item) return;
+        
+        if (confirm(`Are you sure you want to remove serial number "${item.serialNumber}"?`)) {
+            showLoading('Removing item...');
             
-            const hasValidItems = serialNumbers.some(item => item.status === 'validated');
-            $('#submitForQCBtn').prop('disabled', !hasValidItems);
+            $.ajax({
+                url: `/invoice_creation/remove-serial-item/${item.id}`,
+                method: 'POST',
+                success: function(response) {
+                    hideLoading();
+                    if (response.success) {
+                        // Remove from local array
+                        serialNumbers.splice(index, 1);
+                        
+                        // Update displays
+                        updateSerialItemsTable();
+                        updateSummaryCards();
+                        updateItemCount();
+                        
+                        const hasValidItems = serialNumbers.some(item => item.status === 'validated');
+                        $('#submitForQCBtn').prop('disabled', !hasValidItems);
+                        
+                        showTemporaryMessage(`✅ Removed "${item.serialNumber}" from invoice.`, 'success');
+                    } else {
+                        showTemporaryMessage('Failed to remove item: ' + response.error, 'danger');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    hideLoading();
+                    console.error('❌ Failed to remove item:', error);
+                    showTemporaryMessage('Failed to remove item.', 'danger');
+                }
+            });
         }
     };
 

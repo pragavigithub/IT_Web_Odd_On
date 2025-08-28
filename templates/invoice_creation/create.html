@@ -272,12 +272,7 @@ $(document).ready(function() {
             },
             error: function(xhr, status, error) {
                 console.warn('Business partners API error:', error);
-                console.log('Running in offline mode');
-                // Add some common customer codes for testing
-                let customerSelect = $('#customerCode');
-                customerSelect.append('<option value="CUS0071">CUS0071 - FORD MOTOR COMPANY</option>');
-                customerSelect.append('<option value="SMDES">SMDES - S.M.D Engg. Services</option>');
-                customerSelect.append('<option value="3D SEALS">3D SEALS - 3D SEALS PRIVATE LIMITED</option>');
+                console.log('Running in offline mode - no fallback needed, handled by server');
             }
         });
     }

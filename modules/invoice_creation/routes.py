@@ -118,9 +118,7 @@ def get_business_partners():
             logging.warning("⚠️ SAP B1 configuration missing - returning fallback customers")
             # Return fallback customer data for offline mode
             fallback_customers = [
-                {'CardCode': 'CUS0028', 'CardName': 'RAHUL PHONE CUSTOMER'},
-                {'CardCode': 'CUS0001', 'CardName': 'Sample Customer A'},
-                {'CardCode': 'CUS0002', 'CardName': 'Sample Customer B'}
+
             ]
             return jsonify({
                 'success': True,
@@ -131,9 +129,7 @@ def get_business_partners():
         if not sap.ensure_logged_in():
             logging.error("❌ SAP login failed - returning fallback customers")
             fallback_customers = [
-                {'CardCode': 'CUS0028', 'CardName': 'RAHUL PHONE CUSTOMER'},
-                {'CardCode': 'CUS0001', 'CardName': 'Sample Customer A'},
-                {'CardCode': 'CUS0002', 'CardName': 'Sample Customer B'}
+
             ]
             return jsonify({
                 'success': True,
@@ -160,9 +156,7 @@ def get_business_partners():
                 logging.error(f"❌ SAP API error: {response.status_code} - {response.text}")
                 # Return fallback on API error
                 fallback_customers = [
-                    {'CardCode': 'CUS0028', 'CardName': 'RAHUL PHONE CUSTOMER'},
-                    {'CardCode': 'CUS0001', 'CardName': 'Sample Customer A'},
-                    {'CardCode': 'CUS0002', 'CardName': 'Sample Customer B'}
+
                 ]
                 return jsonify({
                     'success': True,
@@ -173,9 +167,7 @@ def get_business_partners():
         except Exception as e:
             logging.error(f"❌ SAP request failed: {str(e)}")
             fallback_customers = [
-                {'CardCode': 'CUS0028', 'CardName': 'RAHUL PHONE CUSTOMER'},
-                {'CardCode': 'CUS0001', 'CardName': 'Sample Customer A'},
-                {'CardCode': 'CUS0002', 'CardName': 'Sample Customer B'}
+
             ]
             return jsonify({
                 'success': True,
@@ -211,15 +203,7 @@ def validate_serial_number():
             logging.warning("⚠️ SAP B1 configuration missing - using fallback validation")
             # Return fallback serial validation data for offline mode
             fallback_data = {
-                'ItemCode': 'MI Phone',
-                'ItemName': 'RAHUL PHONE', 
-                'DistNumber': serial_number,
-                'WhsCode': '7000-FG',
-                'WhsName': 'Finished Goods Warehouse',
-                'CardCode': 'CUS0028',
-                'CardName': 'RAHUL PHONE CUSTOMER',
-                'CustomerCode': 'CUS0028',
-                'CustomerName': 'RAHUL PHONE CUSTOMER'
+
             }
             return jsonify({
                 'success': True,
@@ -231,15 +215,7 @@ def validate_serial_number():
             logging.error("❌ SAP login failed - using fallback validation")
             # Return fallback serial validation data for offline mode
             fallback_data = {
-                'ItemCode': 'MI Phone',
-                'ItemName': 'RAHUL PHONE', 
-                'DistNumber': serial_number,
-                'WhsCode': '7000-FG',
-                'WhsName': 'Finished Goods Warehouse',
-                'CardCode': 'CUS0028',
-                'CardName': 'RAHUL PHONE CUSTOMER',
-                'CustomerCode': 'CUS0028',
-                'CustomerName': 'RAHUL PHONE CUSTOMER'
+
             }
             return jsonify({
                 'success': True,
@@ -304,15 +280,7 @@ def validate_serial_number():
             logging.error(f"❌ SAP validation failed: {str(e)} - using fallback validation")
             # Return fallback serial validation data on SAP error
             fallback_data = {
-                'ItemCode': 'MI Phone',
-                'ItemName': 'RAHUL PHONE', 
-                'DistNumber': serial_number,
-                'WhsCode': '7000-FG',
-                'WhsName': 'Finished Goods Warehouse',
-                'CardCode': 'CUS0028',
-                'CardName': 'RAHUL PHONE CUSTOMER',
-                'CustomerCode': 'CUS0028',
-                'CustomerName': 'RAHUL PHONE CUSTOMER'
+
             }
             return jsonify({
                 'success': True,

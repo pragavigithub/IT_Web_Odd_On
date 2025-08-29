@@ -83,7 +83,7 @@ def create():
                         item_description=item_data.get('item_name', 'Unknown Item'),
                         quantity=1.0,
                         warehouse_code=item_data.get('warehouse', ''),
-                        tax_code='CSGST@18'
+                        tax_code='IGST0'
                     )
                     db.session.add(invoice_line)
                     db.session.flush()  # Get the line ID
@@ -563,7 +563,7 @@ def create_invoice():
                     'ItemCode': cached_lookup.item_code,
                     'ItemDescription': cached_lookup.item_name,
                     'WarehouseCode': cached_lookup.warehouse_code,
-                    'TaxCode': 'CSGST@18',
+                    # 'TaxCode': 'IGST0',
                     'Quantity': 0,
                     'SerialNumbers': [],
                     'BPL_IDAssignedToInvoice': cached_lookup.branch_id,
@@ -598,7 +598,7 @@ def create_invoice():
                 "ItemDescription": item_data['ItemDescription'],
                 "Quantity": float(item_data['Quantity']),
                 "WarehouseCode": item_data['WarehouseCode'],
-                "TaxCode": item_data['TaxCode'],
+                # "TaxCode": item_data['TaxCode'],
                 "SerialNumbers": item_data['SerialNumbers']
             }
             sap_invoice["DocumentLines"].append(document_line)
@@ -611,7 +611,7 @@ def create_invoice():
             invoice_line.item_description = item_data['ItemDescription']
             invoice_line.quantity = item_data['Quantity']
             invoice_line.warehouse_code = item_data['WarehouseCode']
-            invoice_line.tax_code = item_data['TaxCode']
+            # invoice_line.tax_code = item_data['TaxCode']
             db.session.add(invoice_line)
             db.session.flush()
             
@@ -829,7 +829,7 @@ def build_sap_invoice_data(invoice):
                     "ItemCode": line.item_code,
                     "ItemDescription": line.item_description,
                     "WarehouseCode": line.warehouse_code,
-                    "TaxCode": line.tax_code or "CSGST@18",
+                    # '"TaxCode": line.tax_code or "IGST0",
                     "BaseLineNumber": base_line_counter,
                     "SerialNumbers": [],
                     "TotalQuantity": 0
@@ -853,7 +853,7 @@ def build_sap_invoice_data(invoice):
                 "ItemDescription": item_data["ItemDescription"],
                 "Quantity": float(item_data["TotalQuantity"]),
                 "WarehouseCode": item_data["WarehouseCode"],
-                "TaxCode": item_data["TaxCode"]
+                # "TaxCode": item_data["TaxCode"]
             }
             
             if item_data["SerialNumbers"]:
@@ -1126,12 +1126,7 @@ def add_line_item(invoice_id):
         else:
             # Fallback data for offline mode
             validation_result = {
-                'ItemCode': 'MI Phone',
-                'itemName': 'RAHUL PHONE', 
-                'DistNumber': serial_number,
-                'WhsCode': '7000-FG',
-                'CardCode': 'CUS0028',
-                'CardName': 'RAHUL PHONE CUSTOMER'
+
             }
             validation_status = 'validated'
             logging.info(f"🔄 Using offline mode for {serial_number}")
@@ -1150,7 +1145,7 @@ def add_line_item(invoice_id):
             quantity=1.0,
             warehouse_code=validation_result.get('WhsCode', ''),
             warehouse_name=validation_result.get('WhsName', ''),
-            tax_code='CSGST@18'
+            tax_code='IGST0'
         )
         
         db.session.add(invoice_line)
@@ -1480,7 +1475,6 @@ def generate_sap_invoice_json(invoice):
                         'ItemCode': serial_item.item_code,
                         'ItemDescription': serial_item.item_description,
                         'WarehouseCode': serial_item.warehouse_code,
-                        'TaxCode': line.tax_code or 'CSGST@18',
                         'SerialNumbers': []
                     }
 
@@ -1504,7 +1498,7 @@ def generate_sap_invoice_json(invoice):
                 'ItemDescription': item_data['ItemDescription'],
                 'Quantity': float(len(item_data['SerialNumbers'])),  # Total quantity = number of serials
                 'WarehouseCode': item_data['WarehouseCode'],
-                'TaxCode': item_data['TaxCode'],
+                # 'TaxCode': item_data['TaxCode'],
                 'SerialNumbers': item_data['SerialNumbers']
             })
 
@@ -1572,7 +1566,7 @@ def post_invoice_to_sap_b1(invoice_data):
         else:
             error_msg = f"HTTP {response.status_code}: {response.text}"
             logging.error(f"❌ SAP B1 invoice posting failed: {error_msg}")
-            print(f"transfer_item (repr) --> {repr(invoice_data)}")
+            print(f"transfer_itemssssssss (repr) --> {repr(invoice_data)}")
             return {
                 'success': False,
                 'error': error_msg
@@ -1580,7 +1574,7 @@ def post_invoice_to_sap_b1(invoice_data):
             
     except Exception as e:
         logging.error(f"❌ Error posting invoice to SAP B1: {str(e)}")
-        print(f"transfer_item (repr) --> {repr(invoice_data)}")
+        print(f"transfer_itemaaaaa (repr) --> {repr(invoice_data)}")
         return {
             'success': False,
             'error': str(e)

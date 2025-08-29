@@ -1317,6 +1317,44 @@ def create_draft_invoice():
             'error': f'Internal error: {str(e)}'
         }), 500
 
+@invoice_bp.route('/cleanup_empty_drafts', methods=['POST'])
+@login_required
+def cleanup_empty_drafts():
+    """Clean up empty draft invoices that have no line items"""
+    try:
+        if not current_user.has_permission('invoice_creation'):
+            return jsonify({'success': False, 'error': 'Access denied - Invoice Creation permissions required'}), 403
+        
+        # Find all draft invoices by this user that have no line items
+        empty_drafts = db.session.query(InvoiceDocument).filter(
+            InvoiceDocument.user_id == current_user.id,
+            InvoiceDocument.status == 'draft',
+            ~InvoiceDocument.lines.any()  # No line items
+        ).all()
+        
+        count = 0
+        for draft in empty_drafts:
+            db.session.delete(draft)
+            count += 1
+        
+        db.session.commit()
+        
+        logging.info(f"✅ Cleaned up {count} empty draft invoices for user {current_user.username}")
+        
+        return jsonify({
+            'success': True,
+            'count': count,
+            'message': f'Cleaned up {count} empty draft invoices'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"❌ Error cleaning up empty drafts: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Internal error: {str(e)}'
+        }), 500
+
 @invoice_bp.route('/<int:invoice_id>/submit_for_qc', methods=['POST'])
 @login_required
 def submit_for_qc(invoice_id):

@@ -237,8 +237,7 @@ function initializeInvoiceCreation() {
     const today = new Date();
     $('#invoiceDate').val(today.toISOString().split('T')[0]);
 
-    // Create draft invoice immediately on page load
-    createDraftInvoice();
+    // Note: Draft invoice will be created only when first line item is added
 
     // Load business partners on page load
     loadBusinessPartners();
@@ -286,6 +285,101 @@ function createDraftInvoice() {
             error: function(xhr, status, error) {
                 console.error('❌ Error creating draft invoice:', error);
                 showTemporaryMessage('Error creating draft invoice. Please refresh the page.', 'danger');
+            }
+        });
+}
+
+function createDraftInvoiceAndAddItem(serialNumber) {
+        console.log('🔄 Creating draft invoice and adding first item:', serialNumber);
+        showTemporaryMessage('Creating invoice for first item...', 'info');
+        
+        $.ajax({
+            url: '/invoice_creation/create_draft',
+            method: 'POST',
+            xhrFields: {
+                withCredentials: true
+            },
+            success: function(response) {
+                if (response.success && response.invoice_id) {
+                    currentInvoiceId = response.invoice_id;
+                    console.log('✅ Draft invoice created with ID:', currentInvoiceId);
+                    
+                    // Now add the serial number to the newly created invoice
+                    const addData = {
+                        serial_number: serialNumber
+                    };
+
+                    console.log('📤 Adding first serial item:', addData);
+
+                    $.ajax({
+                        url: `/invoice_creation/${currentInvoiceId}/add_line_item`,
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify(addData),
+                        xhrFields: {
+                            withCredentials: true
+                        },
+                        success: function(response) {
+                            console.log('✅ First serial item added successfully:', response);
+                            
+                            if (response.success && response.item_added && response.item_data) {
+                                // Add row to table
+                                addRowToTable(response.item_data);
+                                
+                                // Update customer dropdown if auto-detected
+                                if (response.item_data.customer_code) {
+                                    let customerSelect = $('#customerCode');
+                                    let existingOption = customerSelect.find(`option[value="${response.item_data.customer_code}"]`);
+                                    
+                                    if (existingOption.length > 0) {
+                                        customerSelect.val(response.item_data.customer_code);
+                                    } else {
+                                        // Add customer option if not exists
+                                        let customerName = response.item_data.customer_name || 'Unknown Customer';
+                                        customerSelect.append(`<option value="${response.item_data.customer_code}">${response.item_data.customer_code} - ${customerName}</option>`);
+                                        customerSelect.val(response.item_data.customer_code);
+                                    }
+                                }
+                                
+                                // Update summary and counters
+                                updateSummaryCards();
+                                
+                                // Clear input and move to next line
+                                $('#serialNumberInput').val('');
+                                currentLine++;
+                                $('#currentLineNumber').text(currentLine);
+                                $('#currentLineDisplay').text(currentLine);
+                                window.currentSerialData = null;
+                                
+                                // Enable submit button
+                                $('#submitForQCBtn').prop('disabled', false);
+                                
+                                // Focus back to input
+                                $('#serialNumberInput').focus();
+                                
+                                showTemporaryMessage(`✅ Invoice created and "${serialNumber}" added!`, 'success');
+                            } else {
+                                showTemporaryMessage('Failed to add first item: ' + (response.error || 'Unknown error'), 'danger');
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            console.error('❌ Failed to add first serial item:', error, xhr.responseJSON);
+                            let errorMsg = 'Failed to add first item to invoice';
+                            if (xhr.responseJSON && xhr.responseJSON.error) {
+                                errorMsg = xhr.responseJSON.error;
+                            }
+                            showTemporaryMessage(errorMsg, 'danger');
+                        }
+                    });
+                    
+                } else {
+                    console.error('❌ Failed to create draft invoice:', response.error);
+                    showTemporaryMessage('Failed to create invoice: ' + (response.error || 'Unknown error'), 'danger');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('❌ Error creating draft invoice:', error);
+                showTemporaryMessage('Error creating invoice. Please try again.', 'danger');
             }
         });
 }
@@ -496,9 +590,10 @@ function loadBusinessPartners() {
             return;
         }
 
-        // Make API call to add item immediately to database (like Serial Item Transfer does)
+        // Create draft invoice if this is the first item being added
         if (!currentInvoiceId) {
-            showTemporaryMessage('No draft invoice available. Please refresh the page.', 'danger');
+            console.log('🔄 No draft invoice exists, creating one for first item...');
+            createDraftInvoiceAndAddItem(serialNumber);
             return;
         }
 

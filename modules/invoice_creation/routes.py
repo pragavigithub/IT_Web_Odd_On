@@ -808,49 +808,75 @@ def generate_invoice_number():
         return f"INV-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
 def build_sap_invoice_data(invoice):
-    """Build SAP B1 Invoice JSON structure as per user specification"""
+    """Build SAP B1 Invoice JSON structure with proper BaseLineNumber grouping by ItemCode"""
     try:
         # Get invoice lines with serial numbers
-        lines = []
         invoice_lines = InvoiceLine.query.filter_by(invoice_id=invoice.id).all()
+        
+        # Group by ItemCode to assign proper BaseLineNumber (0, 1, 2, etc.)
+        grouped_items = {}
+        base_line_counter = 0
         
         for line in invoice_lines:
             # Get serial numbers for this line
             serial_numbers = InvoiceSerialNumber.query.filter_by(invoice_line_id=line.id).all()
             
-            sap_serials = []
+            item_key = line.item_code
+            
+            # If this ItemCode hasn't been seen before, create new group
+            if item_key not in grouped_items:
+                grouped_items[item_key] = {
+                    "ItemCode": line.item_code,
+                    "ItemDescription": line.item_description,
+                    "WarehouseCode": line.warehouse_code,
+                    "TaxCode": line.tax_code or "CSGST@18",
+                    "BaseLineNumber": base_line_counter,
+                    "SerialNumbers": [],
+                    "TotalQuantity": 0
+                }
+                base_line_counter += 1
+            
+            # Add serial numbers to this item group
             for serial in serial_numbers:
-                sap_serials.append({
+                grouped_items[item_key]["SerialNumbers"].append({
                     "InternalSerialNumber": serial.serial_number,
-                    "BaseLineNumber": line.line_number - 1,  # SAP uses 0-based indexing
+                    "BaseLineNumber": grouped_items[item_key]["BaseLineNumber"],
                     "Quantity": 1.0
                 })
-            
+                grouped_items[item_key]["TotalQuantity"] += 1
+        
+        # Build DocumentLines from grouped items
+        document_lines = []
+        for item_data in grouped_items.values():
             line_data = {
-                "ItemCode": line.item_code,
-                "ItemDescription": line.item_description,
-                "Quantity": float(line.quantity),
-                "WarehouseCode": line.warehouse_code,
-                "TaxCode": line.tax_code or "CSGST@18"
+                "ItemCode": item_data["ItemCode"],
+                "ItemDescription": item_data["ItemDescription"],
+                "Quantity": float(item_data["TotalQuantity"]),
+                "WarehouseCode": item_data["WarehouseCode"],
+                "TaxCode": item_data["TaxCode"]
             }
             
-            if sap_serials:
-                line_data["SerialNumbers"] = sap_serials
+            if item_data["SerialNumbers"]:
+                line_data["SerialNumbers"] = item_data["SerialNumbers"]
             
-            lines.append(line_data)
+            document_lines.append(line_data)
         
         # Build complete invoice structure as per user JSON specification
-        from datetime import datetime
+        from datetime import datetime, timedelta
+        doc_date = invoice.doc_date.isoformat() + "T16:02:10.653271Z"
+        due_date = (invoice.doc_date + timedelta(days=30)).isoformat() + "T16:02:10.653271Z"
+        
         sap_data = {
-            "DocDate": invoice.doc_date.isoformat() + "T05:38:53.0043871Z",
-            "DocDueDate": invoice.doc_date.isoformat() + "T18:30:00Z",
+            "DocDate": doc_date,
+            "DocDueDate": due_date,
             "BPL_IDAssignedToInvoice": 5,
             "BPLName": invoice.branch_name or "ORD-CHENNAI",
             "CardCode": invoice.customer_code,
-            "DocumentLines": lines
+            "DocumentLines": document_lines
         }
         
-        logging.info(f"📄 Built SAP invoice data: {sap_data}")
+        logging.info(f"📄 Built SAP invoice data with {len(document_lines)} document lines grouped by ItemCode:")
+        logging.info(f"📄 SAP Invoice JSON: {json.dumps(sap_data, indent=2)}")
         return sap_data
         
     except Exception as e:

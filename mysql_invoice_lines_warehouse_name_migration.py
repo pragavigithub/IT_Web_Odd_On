@@ -13,8 +13,8 @@ import logging
 DB_CONFIG = {
     'host': 'localhost',
     'user': 'root',  # Change to your MySQL username
-    'password': '',  # Change to your MySQL password
-    'database': 'wms_db',  # Change to your database name
+    'password': 'root123',  # Change to your MySQL password
+    'database': 'wms_test',  # Change to your database name
     'port': 3306
 }
 

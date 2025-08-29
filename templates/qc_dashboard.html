@@ -395,6 +395,96 @@
     </div>
 </div>
 
+<!-- Pending Invoice Documents -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i data-feather="file-text"></i> 
+                        Pending Invoice Document Approvals
+                    </h5>
+                    <div>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="refreshData()">
+                            <i data-feather="refresh-cw"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if pending_invoices %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped">
+                        <thead class="table-primary">
+                            <tr>
+                                <th>Invoice #</th>
+                                <th>Customer</th>
+                                <th>Created By</th>
+                                <th>Items Count</th>
+                                <th>Total Amount</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for invoice in pending_invoices %}
+                            <tr>
+                                <td><strong>{{ invoice.invoice_number or ('Invoice-' + invoice.id|string) }}</strong></td>
+                                <td>
+                                    <div>
+                                        <strong>{{ invoice.customer_code or 'N/A' }}</strong><br>
+                                        <small class="text-muted">{{ invoice.customer_name or 'Unknown Customer' }}</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div>
+                                        <strong>{{ invoice.user.first_name }} {{ invoice.user.last_name }}</strong><br>
+                                        <small class="text-muted">{{ invoice.user.username }}</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ invoice.lines|length }} items</span>
+                                </td>
+                                <td>
+                                    {% if invoice.total_amount %}
+                                        ₹{{ "{:,.2f}".format(invoice.total_amount) }}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small>{{ invoice.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{{ url_for('invoice_creation.detail', invoice_id=invoice.id) }}" class="btn btn-sm btn-outline-primary">
+                                            <i data-feather="eye"></i> Review
+                                        </a>
+                                        <button class="btn btn-sm btn-success" onclick="showInvoiceApprovalModal({{ invoice.id }}, '{{ invoice.invoice_number or ('Invoice-' + invoice.id|string) }}')">
+                                            <i data-feather="check"></i> Approve
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" onclick="showInvoiceRejectionModal({{ invoice.id }}, '{{ invoice.invoice_number or ('Invoice-' + invoice.id|string) }}')">
+                                            <i data-feather="x"></i> Reject
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i data-feather="info"></i>
+                    No pending invoice documents for approval at this time.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- QC Approved Serial Item Transfers for SAP Posting -->
 <!--<div class="row mt-4">-->
 <!--    <div class="col-12">-->
@@ -909,5 +999,60 @@ setInterval(function() {
     console.log('Auto-refreshing QC dashboard...');
     refreshData();
 }, 30000);
+
+// Invoice Approval/Rejection Functions
+function showInvoiceApprovalModal(invoiceId, invoiceNumber) {
+    const shouldPostToSap = confirm(`Approve Invoice ${invoiceNumber} and post to SAP B1?\n\nClick OK to approve and post to SAP B1, or Cancel to just approve.`);
+    
+    // Make AJAX call to approve invoice
+    fetch(`/invoice_creation/${invoiceId}/qc_approve`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ post_to_sap: shouldPostToSap })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`✅ Invoice approved successfully!\n\n${data.message}`);
+            location.reload();
+        } else {
+            alert(`❌ Error: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error approving invoice');
+    });
+}
+
+function showInvoiceRejectionModal(invoiceId, invoiceNumber) {
+    const reason = prompt(`Please enter the reason for rejecting Invoice ${invoiceNumber}:`);
+    if (reason && reason.trim()) {
+        // Make AJAX call to reject invoice
+        fetch(`/invoice_creation/${invoiceId}/qc_reject`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ rejection_reason: reason.trim() })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`✅ Invoice rejected successfully!`);
+                location.reload();
+            } else {
+                alert(`❌ Error: ${data.error}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error rejecting invoice');
+        });
+    }
+}
+
 </script>
 {% endblock %}

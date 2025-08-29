@@ -62,6 +62,7 @@ def create():
                 
                 # Add invoice items
                 total_amount = 0.0
+                line_number = 1
                 for item_data in serial_items:
                     # Store serial number lookup data first
                     serial_lookup = SerialNumberLookup()
@@ -73,6 +74,33 @@ def create():
                     serial_lookup.sap_response = json.dumps(item_data)
                     serial_lookup.last_updated = datetime.utcnow()
                     db.session.add(serial_lookup)
+                    
+                    # Create invoice line
+                    invoice_line = InvoiceLine(
+                        invoice_id=invoice.id,
+                        line_number=line_number,
+                        item_code=item_data.get('item_code', 'UNKNOWN'),
+                        item_description=item_data.get('item_name', 'Unknown Item'),
+                        quantity=1.0,
+                        warehouse_code=item_data.get('warehouse', ''),
+                        tax_code='CSGST@18'
+                    )
+                    db.session.add(invoice_line)
+                    db.session.flush()  # Get the line ID
+                    
+                    # Create serial number record
+                    serial_item = InvoiceSerialNumber(
+                        invoice_line_id=invoice_line.id,
+                        serial_number=item_data.get('serial_number'),
+                        item_code=item_data.get('item_code', 'UNKNOWN'),
+                        item_description=item_data.get('item_name', 'Unknown Item'),
+                        warehouse_code=item_data.get('warehouse', ''),
+                        customer_code=customer_code,
+                        quantity=1.0,
+                        validation_status='validated'
+                    )
+                    db.session.add(serial_item)
+                    line_number += 1
                 
                 db.session.commit()
                 
@@ -1385,6 +1413,45 @@ def qc_approve_invoice(invoice_id):
     except Exception as e:
         db.session.rollback()
         logging.error(f"❌ Error in QC approval: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Internal error: {str(e)}'
+        }), 500
+
+@invoice_bp.route('/<int:invoice_id>/qc_reject', methods=['POST'])
+@login_required
+def qc_reject_invoice(invoice_id):
+    """QC reject invoice"""
+    try:
+        invoice = InvoiceDocument.query.get_or_404(invoice_id)
+        
+        # Check QC permissions
+        if not current_user.has_permission('qc_approval'):
+            return jsonify({'success': False, 'error': 'Access denied - QC approval permissions required'}), 403
+        
+        if invoice.status != 'pending_qc':
+            return jsonify({'success': False, 'error': 'Invoice must be pending QC approval'}), 400
+        
+        data = request.get_json()
+        rejection_reason = data.get('rejection_reason', 'No reason provided')
+        
+        # Update invoice status
+        invoice.status = 'rejected'
+        invoice.notes = f"Rejected by QC: {rejection_reason}"
+        invoice.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        logging.info(f"✅ Invoice {invoice.id} rejected by QC. Reason: {rejection_reason}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Invoice rejected successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"❌ Error in QC rejection: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'Internal error: {str(e)}'

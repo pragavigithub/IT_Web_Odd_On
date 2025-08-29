@@ -307,7 +307,7 @@ function addRowToTable(itemData) {
                 <td><code>${itemData.serial_number}</code></td>
                 <td><strong>${itemData.item_code}</strong></td>
                 <td>${itemData.item_description}</td>
-                <td><span class="badge badge-info">${itemData.warehouse_code}</span></td>
+                <td><span class="badge badge-info" title="${itemData.warehouse_name || ''}">${itemData.warehouse_code}</span>${itemData.warehouse_name ? '<br><small class="text-muted">' + itemData.warehouse_name + '</small>' : ''}</td>
                 <td><span class="badge badge-secondary">-</span></td>
                 <td>${validationBadge}</td>
                 <td><strong>${itemData.quantity}</strong></td>

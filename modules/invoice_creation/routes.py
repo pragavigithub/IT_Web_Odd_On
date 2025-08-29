@@ -1230,6 +1230,7 @@ def add_line_item(invoice_id):
                 'item_code': serial_item.item_code,
                 'item_description': serial_item.item_description,
                 'warehouse_code': serial_item.warehouse_code,
+                'warehouse_name': invoice_line.warehouse_name,
                 'customer_code': serial_item.customer_code,
                 'customer_name': serial_item.customer_name,
                 'quantity': serial_item.quantity,

@@ -52,15 +52,15 @@
                                 <td>{{ invoice.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
                                 <td>
                                     {% if invoice.status == 'draft' %}
-                                    <span class="badge badge-secondary">Draft</span>
+                                    <span class="badge badge-secondary">{{ invoice.status.title() }}</span>
                                     {% elif invoice.status == 'created' %}
-                                    <span class="badge badge-success">Created</span>
+                                    <span class="badge badge-success">{{ invoice.status.title() }}</span>
                                     {% elif invoice.status == 'failed' %}
-                                    <span class="badge badge-danger">Failed</span>
+                                    <span class="badge badge-danger">{{ invoice.status.title() }}</span>
                                     {% elif invoice.status == 'posted' %}
                                     <span class="badge bg-primary">{{ invoice.status.title() }}</span>
                                     {% elif invoice.status == 'rejected' %}
-                                    <span class="badge bg-danger">Rejected</span>
+                                    <span class="badge bg-danger">{{ invoice.status.title() }}</span>
                                     {% endif %}
                                 </td>
                                 <td>{{ invoice.sap_doc_num or '-' }}</td>

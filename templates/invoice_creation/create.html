@@ -384,7 +384,7 @@ function loadBusinessPartners() {
         }
 
         console.log('🔍 Fetching details for serial number:', serialNumber);
-        showLoading('Validating serial number with SAP B1...');
+
 
         $.ajax({
             url: '/invoice_creation/api/validate-serial-number',
@@ -507,7 +507,7 @@ function loadBusinessPartners() {
         };
 
         console.log('📤 Adding serial item with data:', addData);
-        showLoading('Adding item to invoice...');
+
 
         $.ajax({
             url: `/invoice_creation/${currentInvoiceId}/add_line_item`,
@@ -608,7 +608,7 @@ function loadBusinessPartners() {
         }
         
         console.log('🗑️ Removing line item:', lineId);
-        showLoading('Removing line item...');
+
         
         $.ajax({
             url: `/invoice_creation/lines/${lineId}/delete`,
@@ -718,7 +718,7 @@ function removeLineItem(itemId) {
         }
         
         console.log('🗑️ Removing line item:', itemId);
-        showLoading('Removing item...');
+
         
         $.ajax({
             url: `/invoice_creation/${currentInvoiceId}/remove_line_item/${itemId}`,
@@ -801,7 +801,7 @@ function updateItemCountOld() {
         }
         
         if (confirm('Are you sure you want to clear all serial items?')) {
-            showLoading('Clearing all items...');
+
             
             $.ajax({
                 url: '/invoice_creation/clear-session-items',
@@ -908,7 +908,7 @@ function updateItemCountOld() {
         if (!item) return;
         
         if (confirm(`Are you sure you want to remove serial number "${item.serialNumber}"?`)) {
-            showLoading('Removing item...');
+
             
             $.ajax({
                 url: `/invoice_creation/remove-serial-item/${item.id}`,

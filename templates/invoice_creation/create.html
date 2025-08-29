@@ -84,74 +84,7 @@
         </div>
     </div>
 
-    <!-- Serial Items Table -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i data-feather="list"></i> Serial Items</h5>
-                        <span class="badge badge-light" id="itemCount">0 Items</span>
-                    </div>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-striped mb-0" id="serialItemsTable">
-                            <thead style="background-color: #f8f9fa;">
-                                <tr>
-                                    <th style="width: 60px;">Line</th>
-                                    <th style="width: 120px;">Serial Number</th>
-                                    <th style="width: 120px;">Item Code</th>
-                                    <th>Item Description</th>
-                                    <th style="width: 100px;">From WH</th>
-                                    <th style="width: 100px;">To WH</th>
-                                    <th style="width: 100px;">Validation</th>
-                                    <th style="width: 60px;">Qty</th>
-                                    <th style="width: 100px;">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="serialItemsBody">
-                                <!-- Items will be added here dynamically -->
-                            </tbody>
-                        </table>
-                    </div>
-                    <div id="noItemsMessage" class="text-center py-5 text-muted">
-                        <i data-feather="inbox" style="width: 48px; height: 48px;"></i>
-                        <p class="mt-2 mb-0">No serial items added yet</p>
-                        <small>Enter serial numbers above to start building the invoice</small>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Summary Cards -->
-    <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card bg-success text-white">
-                <div class="card-body text-center">
-                    <h2 class="card-title mb-0" id="validatedCount">0</h2>
-                    <p class="card-text mb-0">Validated Items</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card bg-danger text-white">
-                <div class="card-body text-center">
-                    <h2 class="card-title mb-0" id="failedCount">0</h2>
-                    <p class="card-text mb-0">Failed Items</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card bg-primary text-white">
-                <div class="card-body text-center">
-                    <h2 class="card-title mb-0" id="totalCount">0</h2>
-                    <p class="card-text mb-0">Total Items</p>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Submit Button -->
     <div class="row">

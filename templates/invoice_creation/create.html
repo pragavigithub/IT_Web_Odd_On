@@ -86,6 +86,77 @@
 
 
 
+    <!-- Line Items Table -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i data-feather="list"></i> Invoice Line Items</h5>
+                        <span class="badge badge-light" id="itemCount">0 items</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm" id="serialItemsTable" style="font-size: 0.9rem;">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th style="width: 60px;">Line</th>
+                                    <th style="width: 140px;">Serial Number</th>
+                                    <th style="width: 120px;">Item Code</th>
+                                    <th style="width: 200px;">Item Description</th>
+                                    <th style="width: 90px;">Warehouse</th>
+                                    <th style="width: 90px;">Tax Code</th>
+                                    <th style="width: 90px;">Status</th>
+                                    <th style="width: 50px;">Qty</th>
+                                    <th style="width: 120px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="serialItemsBody">
+                                <!-- Line items will be populated here -->
+                            </tbody>
+                        </table>
+                        
+                        <!-- No items message -->
+                        <div id="noItemsMessage" class="text-center py-4">
+                            <i data-feather="box" style="width: 48px; height: 48px;" class="text-muted mb-3"></i>
+                            <p class="text-muted">No line items added yet.</p>
+                            <p class="text-muted">Use the serial number input above to add items.</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Summary Cards -->
+                    <div class="row mt-3" id="summaryCards" style="display: none;">
+                        <div class="col-md-4">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h5 id="validatedCount">0</h5>
+                                    <small>Validated Items</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center">
+                                    <h5 id="totalItems">0</h5>
+                                    <small>Total Items</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center">
+                                    <h5 id="totalQuantity">0</h5>
+                                    <small>Total Quantity</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Submit Button -->
     <div class="row">
         <div class="col-12 text-center">
@@ -497,6 +568,88 @@ function loadBusinessPartners() {
                 showTemporaryMessage(errorMsg, 'danger');
             }
         });
+    }
+
+    function updateItemCount() {
+        const itemCount = $('#serialItemsBody tr').length;
+        $('#itemCount').text(`${itemCount} items`);
+        
+        if (itemCount > 0) {
+            $('#noItemsMessage').hide();
+            $('#summaryCards').show();
+            $('#submitForQCBtn').prop('disabled', false);
+        } else {
+            $('#noItemsMessage').show();
+            $('#summaryCards').hide();
+            $('#submitForQCBtn').prop('disabled', true);
+        }
+        
+        updateSummaryCards();
+    }
+    
+    function updateSummaryCards() {
+        const totalItems = $('#serialItemsBody tr').length;
+        const validatedItems = $('#serialItemsBody tr').length; // All items are validated when added
+        const totalQuantity = totalItems; // Each item has quantity 1
+        
+        $('#totalItems').text(totalItems);
+        $('#validatedCount').text(validatedItems);
+        $('#totalQuantity').text(totalQuantity);
+    }
+    
+    function removeLineItem(lineId) {
+        if (!confirm('Are you sure you want to remove this line item?')) {
+            return;
+        }
+        
+        console.log('🗑️ Removing line item:', lineId);
+        showLoading('Removing line item...');
+        
+        $.ajax({
+            url: `/invoice_creation/lines/${lineId}/delete`,
+            method: 'POST',
+            xhrFields: {
+                withCredentials: true
+            },
+            success: function(response) {
+                hideLoading();
+                console.log('✅ Line item removed:', response);
+                
+                if (response.success) {
+                    // Remove the row from table
+                    $(`tr[data-item-id="${lineId}"]`).remove();
+                    
+                    // Update counters and line numbers
+                    updateItemCount();
+                    updateLineNumbers();
+                    
+                    showTemporaryMessage('Line item removed successfully', 'success');
+                } else {
+                    showTemporaryMessage('Failed to remove line item: ' + (response.error || 'Unknown error'), 'danger');
+                }
+            },
+            error: function(xhr, status, error) {
+                hideLoading();
+                console.error('❌ Failed to remove line item:', error, xhr.responseJSON);
+                let errorMsg = 'Failed to remove line item';
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMsg = xhr.responseJSON.error;
+                }
+                showTemporaryMessage(errorMsg, 'danger');
+            }
+        });
+    }
+    
+    function updateLineNumbers() {
+        $('#serialItemsBody tr').each(function(index) {
+            $(this).find('td:first strong').text(index + 1);
+        });
+        
+        // Update current line number
+        const nextLine = $('#serialItemsBody tr').length + 1;
+        currentLine = nextLine;
+        $('#currentLineNumber').text(nextLine);
+        $('#currentLineDisplay').text(nextLine);
     }
 
     function updateSerialItemsTable() {

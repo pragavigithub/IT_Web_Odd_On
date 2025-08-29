@@ -413,6 +413,76 @@ def lookup_serial():
             'message': f'Internal error: {str(e)}'
         }), 500
 
+
+@invoice_bp.route('/create_draft', methods=['POST'])
+@login_required
+def create_draft():
+    """Create a draft invoice for line-by-line entry"""
+    try:
+        if not current_user.has_permission('invoice_creation'):
+            return jsonify({'success': False, 'error': 'Access denied - Invoice Creation permissions required'}), 403
+        
+        # Create draft invoice
+        invoice = InvoiceDocument()
+        invoice.user_id = current_user.id
+        invoice.status = 'draft'
+        invoice.doc_date = datetime.now().date()
+        invoice.total_amount = 0.0
+        
+        db.session.add(invoice)
+        db.session.commit()
+        
+        logging.info(f"✅ Draft invoice {invoice.id} created for user {current_user.username}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Draft invoice created successfully',
+            'invoice_id': invoice.id
+        })
+        
+    except Exception as e:
+        logging.error(f"Error creating draft invoice: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@invoice_bp.route('/lines/<int:line_id>/delete', methods=['POST'])
+@login_required
+def delete_line_item(line_id):
+    """Delete invoice line item"""
+    try:
+        line_item = InvoiceLine.query.get_or_404(line_id)
+        invoice = line_item.invoice
+        
+        # Check permissions
+        if invoice.user_id != current_user.id and current_user.role not in ['admin', 'manager']:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+            
+        if invoice.status != 'draft':
+            return jsonify({'success': False, 'error': 'Cannot delete items from non-draft invoice'}), 400
+            
+        line_id_num = line_item.id
+        serial_numbers = [sn.serial_number for sn in line_item.serial_numbers]
+        
+        # Delete associated serial numbers first (cascade should handle this, but being explicit)
+        for serial_num in line_item.serial_numbers:
+            db.session.delete(serial_num)
+            
+        db.session.delete(line_item)
+        db.session.commit()
+        
+        logging.info(f"🗑️ Invoice line item {line_id_num} deleted from invoice {invoice.id}")
+        return jsonify({
+            'success': True, 
+            'message': f'Line item with serials {", ".join(serial_numbers)} deleted'
+        })
+        
+    except Exception as e:
+        logging.error(f"Error deleting line item: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @invoice_bp.route('/api/create_invoice', methods=['POST'])
 @login_required
 def create_invoice():

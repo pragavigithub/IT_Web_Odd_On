@@ -166,7 +166,7 @@ def get_business_partners():
             })
         
         try:
-            url = f"{sap.base_url}/b1s/v1/BusinessPartners?$select=CardCode,CardName"
+            url = f"{sap.base_url}/b1s/v1/BusinessPartners?$select=CardCode,CardName&$filter=CardType eq 'cCustomer'"
             logging.info(f"🌐 SAP API URL: {url}")
             response = sap.session.get(url, timeout=10)
             

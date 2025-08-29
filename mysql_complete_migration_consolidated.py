@@ -226,14 +226,23 @@ class ConsolidatedMySQLMigration:
                     invoice_line_id INT NOT NULL,
                     serial_number VARCHAR(100) NOT NULL,
                     item_code VARCHAR(50) NOT NULL,
-                    warehouse_code VARCHAR(10) NOT NULL,
+                    item_description VARCHAR(200),
+                    warehouse_code VARCHAR(10),
+                    customer_code VARCHAR(20),
+                    customer_name VARCHAR(100),
+                    base_line_number INT DEFAULT 0,
+                    quantity DECIMAL(15,3) DEFAULT 1.0,
+                    validation_status VARCHAR(20) DEFAULT 'pending',
+                    validation_error TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     FOREIGN KEY (invoice_line_id) REFERENCES invoice_lines(id) ON DELETE CASCADE,
                     UNIQUE KEY unique_serial_per_line (invoice_line_id, serial_number),
                     INDEX idx_invoice_line_id (invoice_line_id),
                     INDEX idx_serial_number (serial_number),
                     INDEX idx_item_code (item_code),
-                    INDEX idx_warehouse_code (warehouse_code)
+                    INDEX idx_warehouse_code (warehouse_code),
+                    INDEX idx_validation_status (validation_status)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ''',
             

@@ -15,6 +15,7 @@ FEATURES INCLUDED:
 ✅ Comprehensive indexing for optimal performance
 ✅ PostgreSQL compatibility for Replit environment
 ✅ Invoice Creation pagination and filtering (2025-08-29)
+✅ Invoice Creation BPL columns fix (bpl_id, bpl_name) (2025-08-29)
 
 Run: python mysql_complete_migration_consolidated.py
 """
@@ -90,6 +91,73 @@ class ConsolidatedMySQLMigration:
         """
         result = self.execute_query(query, [table_name])
         return result[0]['count'] > 0
+    
+    def column_exists(self, table_name, column_name):
+        """Check if column exists in table"""
+        try:
+            query = """
+                SELECT COUNT(*) as count 
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                AND TABLE_NAME = %s 
+                AND COLUMN_NAME = %s
+            """
+            result = self.execute_query(query, [table_name, column_name])
+            return result[0]['count'] > 0
+        except Exception as e:
+            logger.error(f"❌ Error checking column existence: {e}")
+            return False
+    
+    def add_missing_columns(self):
+        """Add missing columns to existing tables"""
+        try:
+            logger.info("🔍 Checking for missing columns...")
+            
+            # Check and add bpl_id and bpl_name to invoice_documents
+            if self.table_exists('invoice_documents'):
+                if not self.column_exists('invoice_documents', 'bpl_id'):
+                    logger.info("➕ Adding bpl_id column to invoice_documents...")
+                    self.execute_query("""
+                        ALTER TABLE invoice_documents 
+                        ADD COLUMN bpl_id INT AFTER branch_name
+                    """)
+                    logger.info("✅ bpl_id column added successfully")
+                
+                if not self.column_exists('invoice_documents', 'bpl_name'):
+                    logger.info("➕ Adding bpl_name column to invoice_documents...")
+                    self.execute_query("""
+                        ALTER TABLE invoice_documents 
+                        ADD COLUMN bpl_name VARCHAR(100) AFTER bpl_id
+                    """)
+                    logger.info("✅ bpl_name column added successfully")
+                
+                # Add index for bpl_id if it doesn't exist
+                try:
+                    index_check = """
+                        SELECT COUNT(*) as count
+                        FROM INFORMATION_SCHEMA.STATISTICS 
+                        WHERE TABLE_SCHEMA = DATABASE() 
+                        AND TABLE_NAME = 'invoice_documents' 
+                        AND INDEX_NAME = 'idx_bpl_id'
+                    """
+                    result = self.execute_query(index_check)
+                    if result[0]['count'] == 0:
+                        logger.info("➕ Adding index for bpl_id...")
+                        self.execute_query("""
+                            ALTER TABLE invoice_documents 
+                            ADD INDEX idx_bpl_id (bpl_id)
+                        """)
+                        logger.info("✅ Index for bpl_id added successfully")
+                except Exception as e:
+                    logger.warning(f"⚠️ Could not add index for bpl_id: {e}")
+            
+            self.connection.commit()
+            logger.info("✅ Missing columns check completed")
+            
+        except Exception as e:
+            logger.error(f"❌ Error adding missing columns: {e}")
+            self.connection.rollback()
+            raise
     
     def create_all_tables(self):
         """Create all WMS tables in correct order (dependencies first)"""
@@ -532,6 +600,7 @@ ENABLE_QUERY_LOGGING=False
             
             # Run migration steps
             self.create_all_tables()
+            self.add_missing_columns()  # Check and add any missing columns
             self.insert_default_data()
             self.create_env_file(config)
             

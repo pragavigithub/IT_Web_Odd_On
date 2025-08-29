@@ -883,65 +883,6 @@ def build_sap_invoice_data(invoice):
         logging.error(f"❌ Failed to build SAP invoice data: {str(e)}")
         raise
 
-def post_to_sap_invoices(invoice_data):
-    """Post invoice to SAP B1 Invoices API - https://192.168.1.5:50000/b1s/v1/Invoices"""
-    try:
-        sap = SAPIntegration()
-        
-        # Check SAP configuration
-        if not sap.base_url or not sap.username or not sap.password:
-            logging.warning("⚠️ SAP B1 configuration missing - simulating success")
-            return {
-                'success': True,
-
-            }
-        
-        # Ensure logged in
-        if not sap.ensure_logged_in():
-            return {
-                'success': False,
-                'error': 'SAP B1 login failed'
-            }
-        
-        # Post to SAP B1 Invoices endpoint as specified by user
-        url = f"{sap.base_url}/b1s/v1/Invoices"
-        
-        logging.info(f"🚀 Posting to SAP B1 Invoices: {url}")
-        logging.info(f"📤 Invoice payload: {invoice_data}")
-        
-        import requests
-        response = requests.post(
-            url,
-            json=invoice_data,
-            headers=sap.headers,
-            verify=False,
-            timeout=30
-        )
-        
-        if response.status_code == 201:
-            result = response.json()
-            logging.info(f"✅ SAP B1 Invoice posted successfully: {result}")
-            
-            return {
-                'success': True,
-                'sap_doc_entry': result.get('DocEntry'),
-                'sap_doc_num': result.get('DocNum'),
-                'response_text': f"Successfully posted: DocEntry={result.get('DocEntry')}, DocNum={result.get('DocNum')}"
-            }
-        else:
-            logging.error(f"❌ SAP B1 Invoice posting failed: {response.status_code} - {response.text}")
-            return {
-                'success': False,
-                'error': f'SAP API error: {response.status_code} - {response.text}'
-            }
-            
-    except Exception as e:
-        logging.error(f"❌ SAP invoice posting failed: {str(e)}")
-        return {
-            'success': False,
-            'error': f'SAP posting failed: {str(e)}'
-        }
-
 @invoice_bp.route('/add-serial-item', methods=['POST'])
 @login_required
 def add_serial_item():
@@ -1522,17 +1463,18 @@ def qc_reject_invoice(invoice_id):
             'error': f'Internal error: {str(e)}'
         }), 500
 
+
 def generate_sap_invoice_json(invoice):
     """Generate SAP B1 Invoice JSON based on invoice line items"""
     try:
         # Group serial numbers by ItemCode and WarehouseCode for proper line grouping
         grouped_items = {}
-        
+
         for line in invoice.lines:
             for serial_item in line.serial_numbers:
                 # Create a unique key for grouping: ItemCode + WarehouseCode
                 group_key = f"{serial_item.item_code}_{serial_item.warehouse_code}"
-                
+
                 if group_key not in grouped_items:
                     grouped_items[group_key] = {
                         'ItemCode': serial_item.item_code,
@@ -1541,17 +1483,22 @@ def generate_sap_invoice_json(invoice):
                         'TaxCode': line.tax_code or 'CSGST@18',
                         'SerialNumbers': []
                     }
-                
-                # Add serial number to the group
+
+                # Just store serials, we'll assign BaseLineNumber later
                 grouped_items[group_key]['SerialNumbers'].append({
                     'InternalSerialNumber': serial_item.serial_number,
-                    'BaseLineNumber': len(grouped_items[group_key]['SerialNumbers']),  # Sequential line numbers
                     'Quantity': float(serial_item.quantity)
                 })
-        
+
         # Convert grouped items to DocumentLines
         document_lines = []
+        base_line_number = 0  # counter for items
+
         for group_key, item_data in grouped_items.items():
+            # Assign same BaseLineNumber for all serials of this item
+            for serial in item_data['SerialNumbers']:
+                serial['BaseLineNumber'] = base_line_number
+
             document_lines.append({
                 'ItemCode': item_data['ItemCode'],
                 'ItemDescription': item_data['ItemDescription'],
@@ -1560,7 +1507,9 @@ def generate_sap_invoice_json(invoice):
                 'TaxCode': item_data['TaxCode'],
                 'SerialNumbers': item_data['SerialNumbers']
             })
-        
+
+            base_line_number += 1  # move to next item line
+
         # Generate SAP B1 Invoice JSON
         sap_invoice = {
             'DocDate': datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
@@ -1570,10 +1519,10 @@ def generate_sap_invoice_json(invoice):
             'CardCode': invoice.customer_code,
             'DocumentLines': document_lines
         }
-        
+
         logging.info(f"📄 Generated SAP Invoice JSON with {len(document_lines)} document lines for invoice {invoice.id}")
         return sap_invoice
-        
+
     except Exception as e:
         logging.error(f"❌ Error generating SAP invoice JSON: {str(e)}")
         raise
@@ -1623,7 +1572,7 @@ def post_invoice_to_sap_b1(invoice_data):
         else:
             error_msg = f"HTTP {response.status_code}: {response.text}"
             logging.error(f"❌ SAP B1 invoice posting failed: {error_msg}")
-            
+            print(f"transfer_item (repr) --> {repr(invoice_data)}")
             return {
                 'success': False,
                 'error': error_msg
@@ -1631,6 +1580,7 @@ def post_invoice_to_sap_b1(invoice_data):
             
     except Exception as e:
         logging.error(f"❌ Error posting invoice to SAP B1: {str(e)}")
+        print(f"transfer_item (repr) --> {repr(invoice_data)}")
         return {
             'success': False,
             'error': str(e)

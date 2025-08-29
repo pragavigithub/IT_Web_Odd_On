@@ -1288,3 +1288,218 @@ def create_draft_invoice():
             'success': False,
             'error': f'Internal error: {str(e)}'
         }), 500
+
+@invoice_bp.route('/<int:invoice_id>/submit_for_qc', methods=['POST'])
+@login_required
+def submit_for_qc(invoice_id):
+    """Submit invoice for QC approval"""
+    try:
+        invoice = InvoiceDocument.query.get_or_404(invoice_id)
+        
+        # Check permissions
+        if invoice.user_id != current_user.id and current_user.role not in ['admin', 'manager']:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+        
+        if invoice.status != 'draft':
+            return jsonify({'success': False, 'error': 'Invoice must be in draft status'}), 400
+        
+        # Check if invoice has items
+        if not invoice.lines:
+            return jsonify({'success': False, 'error': 'Invoice must have at least one line item'}), 400
+        
+        # Update invoice status and customer
+        data = request.get_json()
+        if data and data.get('customer_code'):
+            invoice.customer_code = data.get('customer_code')
+            invoice.customer_name = data.get('customer_name', '')
+        
+        invoice.status = 'pending_qc'
+        db.session.commit()
+        
+        logging.info(f"✅ Invoice {invoice.id} submitted for QC approval")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Invoice submitted for QC approval successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"❌ Error submitting invoice for QC: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Internal error: {str(e)}'
+        }), 500
+
+@invoice_bp.route('/<int:invoice_id>/qc_approve', methods=['POST'])
+@login_required
+def qc_approve_invoice(invoice_id):
+    """QC approve invoice and post to SAP B1"""
+    try:
+        invoice = InvoiceDocument.query.get_or_404(invoice_id)
+        
+        # Check QC permissions
+        if not current_user.has_permission('qc_approval'):
+            return jsonify({'success': False, 'error': 'Access denied - QC approval permissions required'}), 403
+        
+        if invoice.status != 'pending_qc':
+            return jsonify({'success': False, 'error': 'Invoice must be pending QC approval'}), 400
+        
+        # Check if invoice has customer and items
+        if not invoice.customer_code:
+            return jsonify({'success': False, 'error': 'Invoice must have a customer assigned'}), 400
+        
+        if not invoice.lines:
+            return jsonify({'success': False, 'error': 'Invoice must have line items'}), 400
+        
+        # Generate SAP B1 Invoice JSON based on line items
+        sap_invoice_data = generate_sap_invoice_json(invoice)
+        
+        # Post to SAP B1
+        sap_result = post_invoice_to_sap_b1(sap_invoice_data)
+        
+        if sap_result['success']:
+            # Update invoice with SAP details
+            invoice.status = 'posted'
+            invoice.sap_doc_entry = sap_result.get('sap_doc_entry')
+            invoice.sap_doc_num = sap_result.get('sap_doc_num')
+            invoice.sap_response = json.dumps(sap_result.get('sap_response', {}))
+            invoice.json_payload = json.dumps(sap_invoice_data)
+            
+            db.session.commit()
+            
+            logging.info(f"✅ Invoice {invoice.id} approved and posted to SAP B1 (DocEntry: {sap_result.get('sap_doc_entry')})")
+            
+            return jsonify({
+                'success': True,
+                'message': f'Invoice approved and posted to SAP B1 successfully (DocEntry: {sap_result.get("sap_doc_entry")})',
+                'sap_doc_entry': sap_result.get('sap_doc_entry'),
+                'sap_doc_num': sap_result.get('sap_doc_num')
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'SAP B1 posting failed: {sap_result.get("error", "Unknown error")}'
+            }), 500
+        
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"❌ Error in QC approval: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Internal error: {str(e)}'
+        }), 500
+
+def generate_sap_invoice_json(invoice):
+    """Generate SAP B1 Invoice JSON based on invoice line items"""
+    try:
+        # Group serial numbers by ItemCode and WarehouseCode for proper line grouping
+        grouped_items = {}
+        
+        for line in invoice.lines:
+            for serial_item in line.serial_numbers:
+                # Create a unique key for grouping: ItemCode + WarehouseCode
+                group_key = f"{serial_item.item_code}_{serial_item.warehouse_code}"
+                
+                if group_key not in grouped_items:
+                    grouped_items[group_key] = {
+                        'ItemCode': serial_item.item_code,
+                        'ItemDescription': serial_item.item_description,
+                        'WarehouseCode': serial_item.warehouse_code,
+                        'TaxCode': line.tax_code or 'CSGST@18',
+                        'SerialNumbers': []
+                    }
+                
+                # Add serial number to the group
+                grouped_items[group_key]['SerialNumbers'].append({
+                    'InternalSerialNumber': serial_item.serial_number,
+                    'BaseLineNumber': len(grouped_items[group_key]['SerialNumbers']),  # Sequential line numbers
+                    'Quantity': float(serial_item.quantity)
+                })
+        
+        # Convert grouped items to DocumentLines
+        document_lines = []
+        for group_key, item_data in grouped_items.items():
+            document_lines.append({
+                'ItemCode': item_data['ItemCode'],
+                'ItemDescription': item_data['ItemDescription'],
+                'Quantity': float(len(item_data['SerialNumbers'])),  # Total quantity = number of serials
+                'WarehouseCode': item_data['WarehouseCode'],
+                'TaxCode': item_data['TaxCode'],
+                'SerialNumbers': item_data['SerialNumbers']
+            })
+        
+        # Generate SAP B1 Invoice JSON
+        sap_invoice = {
+            'DocDate': datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
+            'DocDueDate': (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
+            'BPL_IDAssignedToInvoice': 5,  # Default branch
+            'BPLName': 'ORD-CHENNAI',
+            'CardCode': invoice.customer_code,
+            'DocumentLines': document_lines
+        }
+        
+        logging.info(f"📄 Generated SAP Invoice JSON with {len(document_lines)} document lines for invoice {invoice.id}")
+        return sap_invoice
+        
+    except Exception as e:
+        logging.error(f"❌ Error generating SAP invoice JSON: {str(e)}")
+        raise
+
+def post_invoice_to_sap_b1(invoice_data):
+    """Post invoice to SAP B1 and return result"""
+    try:
+        sap = SAPIntegration()
+        
+        # Check SAP configuration
+        if not sap.base_url or not sap.username or not sap.password:
+            logging.warning("⚠️ SAP B1 configuration missing - cannot post invoice")
+            return {
+                'success': False,
+                'error': 'SAP B1 configuration missing'
+            }
+        
+        if not sap.ensure_logged_in():
+            logging.error("❌ SAP B1 login failed")
+            return {
+                'success': False,
+                'error': 'SAP B1 login failed'
+            }
+        
+        # Post to SAP B1 Invoices endpoint
+        url = f"{sap.base_url}/b1s/v1/Invoices"
+        
+        logging.info(f"📤 Posting invoice to SAP B1: {url}")
+        logging.info(f"📄 Invoice data: {json.dumps(invoice_data, indent=2)}")
+        
+        response = sap.session.post(url, json=invoice_data, timeout=30)
+        
+        if response.status_code == 201:
+            # Success - extract DocEntry and DocNum from response
+            sap_response = response.json()
+            doc_entry = sap_response.get('DocEntry')
+            doc_num = sap_response.get('DocNum')
+            
+            logging.info(f"✅ Invoice posted successfully to SAP B1 (DocEntry: {doc_entry}, DocNum: {doc_num})")
+            
+            return {
+                'success': True,
+                'sap_doc_entry': doc_entry,
+                'sap_doc_num': doc_num,
+                'sap_response': sap_response
+            }
+        else:
+            error_msg = f"HTTP {response.status_code}: {response.text}"
+            logging.error(f"❌ SAP B1 invoice posting failed: {error_msg}")
+            
+            return {
+                'success': False,
+                'error': error_msg
+            }
+            
+    except Exception as e:
+        logging.error(f"❌ Error posting invoice to SAP B1: {str(e)}")
+        return {
+            'success': False,
+            'error': str(e)
+        }

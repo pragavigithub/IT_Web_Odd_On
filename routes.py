@@ -1438,6 +1438,10 @@ def qc_dashboard():
     # Get QC approved Serial Item Transfers ready for SAP posting
     qc_approved_serial_item_transfers = SerialItemTransfer.query.filter_by(status='qc_approved').order_by(SerialItemTransfer.qc_approved_at.desc()).all()
     
+    # Get pending Invoice Creation documents for QC approval
+    from modules.invoice_creation.models import InvoiceDocument
+    pending_invoices = InvoiceDocument.query.filter_by(status='pending_qc').order_by(InvoiceDocument.created_at.desc()).all()
+    
     # Calculate metrics for today
     from datetime import datetime, date
     today = date.today()
@@ -1465,7 +1469,13 @@ def qc_dashboard():
         db.func.date(SerialItemTransfer.qc_approved_at) == today
     ).count()
     
-    approved_today = approved_grpos_today + approved_transfers_today + approved_serial_transfers_today + approved_serial_item_transfers_today
+    # Count approved invoices today
+    approved_invoices_today = InvoiceDocument.query.filter(
+        InvoiceDocument.status.in_(['posted']),
+        db.func.date(InvoiceDocument.updated_at) == today
+    ).count()
+    
+    approved_today = approved_grpos_today + approved_transfers_today + approved_serial_transfers_today + approved_serial_item_transfers_today + approved_invoices_today
     
     # Count rejected today
     rejected_grpos_today = GRPODocument.query.filter(
@@ -1593,8 +1603,9 @@ def qc_dashboard():
                          pending_grpos=pending_grpos,
                          pending_serial_transfers=pending_serial_transfers,
                          pending_serial_item_transfers=pending_serial_item_transfers,
+                         pending_invoices=pending_invoices,
                          qc_approved_serial_item_transfers=qc_approved_serial_item_transfers,
-                         pending_count=len(pending_transfers) + len(pending_grpos) + len(pending_serial_transfers) + len(pending_serial_item_transfers),
+                         pending_count=len(pending_transfers) + len(pending_grpos) + len(pending_serial_transfers) + len(pending_serial_item_transfers) + len(pending_invoices),
                          approved_today=approved_today,
                          rejected_today=rejected_today,
                          avg_processing_time=avg_processing_time)

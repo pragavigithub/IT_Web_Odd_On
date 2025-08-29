@@ -843,8 +843,14 @@ function updateItemCountOld() {
             return;
         }
         
-        const validatedItems = serialNumbers.filter(item => item.status === 'validated');
-        if (validatedItems.length === 0) {
+        if (!currentInvoiceId) {
+            showTemporaryMessage('No draft invoice available. Please refresh the page.', 'danger');
+            return;
+        }
+        
+        // Check if invoice has items in the table
+        const itemCount = $('#serialItemsBody tr').length;
+        if (itemCount === 0) {
             showTemporaryMessage('Please add at least one validated serial number.', 'warning');
             return;
         }
@@ -852,57 +858,42 @@ function updateItemCountOld() {
         // Get customer name from selected option
         const customerName = $('#customerCode option:selected').text().split(' - ')[1] || '';
         
-        const invoiceData = {
+        const submitData = {
             customer_code: customerCode,
-            customer_name: customerName,
-            invoice_date: invoiceDate,
-            serial_items: validatedItems.map(item => ({
-                serial_number: item.serialNumber,
-                item_code: item.itemCode,
-                item_name: item.itemName,
-                warehouse: item.fromWH,
-                quantity: item.qty
-            }))
+            customer_name: customerName
         };
         
-        console.log('📤 Submitting invoice for QC:', invoiceData);
-        showLoading('Creating invoice document...');
+        console.log('📤 Submitting invoice for QC approval:', submitData);
+        showLoading('Submitting invoice for QC approval...');
         
         $.ajax({
-            url: '/invoice_creation/create',
+            url: `/invoice_creation/${currentInvoiceId}/submit_for_qc`,
             method: 'POST',
             contentType: 'application/json',
-            data: JSON.stringify(invoiceData),
+            data: JSON.stringify(submitData),
             success: function(response) {
                 hideLoading();
                 if (response.success) {
-                    showTemporaryMessage(`✅ Invoice ${response.invoice_number} created and sent for QC approval!`, 'success');
+                    showTemporaryMessage(`✅ Invoice submitted for QC approval successfully!`, 'success');
                     
-                    // Clear session and local data
-                    serialNumbers = [];
-                    currentLine = 1;
-                    $('#currentLineNumber').text(currentLine);
-                    $('#currentLineDisplay').text(currentLine);
-                    $('#serialNumberInput').val('');
-                    $('#customerCode').val('');
-                    
-                    updateSerialItemsTable();
-                    updateSummaryCards();
-                    updateItemCount();
+                    // Disable further editing
+                    $('#serialNumberInput').prop('disabled', true);
+                    $('#customerCode').prop('disabled', true);
                     $('#submitForQCBtn').prop('disabled', true);
+                    $('#clearAllBtn').prop('disabled', true);
                     
-                    // Redirect to invoice list after delay
+                    // Show success message and redirect
                     setTimeout(function() {
                         window.location.href = '/invoice_creation/';
                     }, 3000);
                 } else {
-                    showTemporaryMessage('❌ Failed to create invoice: ' + response.error, 'danger');
+                    showTemporaryMessage('❌ Failed to submit invoice: ' + response.error, 'danger');
                 }
             },
             error: function(xhr, status, error) {
                 hideLoading();
-                console.error('❌ Invoice creation error:', error, xhr.responseJSON);
-                let errorMsg = 'Error creating invoice';
+                console.error('❌ Invoice submission error:', error, xhr.responseJSON);
+                let errorMsg = 'Error submitting invoice';
                 if (xhr.responseJSON && xhr.responseJSON.error) {
                     errorMsg = xhr.responseJSON.error;
                 }

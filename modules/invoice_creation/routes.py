@@ -147,6 +147,15 @@ def create():
                 invoice.status = 'draft'
                 invoice.total_amount = 0.0
                 
+                # Get BPL information from the first serial number if available
+                if serial_items:
+                    first_serial = serial_items[0].get('serial_number')
+                    if first_serial:
+                        cached_lookup = SerialNumberLookup.query.filter_by(serial_number=first_serial).first()
+                        if cached_lookup and cached_lookup.branch_id and cached_lookup.branch_name:
+                            invoice.bpl_id = cached_lookup.branch_id
+                            invoice.bpl_name = cached_lookup.branch_name
+                
                 db.session.add(invoice)
                 db.session.flush()  # Get the invoice ID
                 
@@ -630,6 +639,15 @@ def create_invoice():
         invoice.customer_code = customer_code
         invoice.user_id = current_user.id
         invoice.status = 'draft'
+        
+        # Get BPL information from the first serial number if available
+        if serial_numbers:
+            first_serial = serial_numbers[0]
+            cached_lookup = SerialNumberLookup.query.filter_by(serial_number=first_serial).first()
+            if cached_lookup and cached_lookup.branch_id and cached_lookup.branch_name:
+                invoice.bpl_id = cached_lookup.branch_id
+                invoice.bpl_name = cached_lookup.branch_name
+        
         db.session.add(invoice)
         db.session.flush()  # Get the ID
         
@@ -1594,12 +1612,35 @@ def generate_sap_invoice_json(invoice):
 
             base_line_number += 1  # move to next item line
 
+        # Get BPL information - first try from invoice record, then from serial data
+        bpl_id = 5  # Default
+        bpl_name = 'ORD-CHENNAI'  # Default
+        
+        # First check if invoice already has BPL data stored
+        if hasattr(invoice, 'bpl_id') and hasattr(invoice, 'bpl_name') and invoice.bpl_id and invoice.bpl_name:
+            bpl_id = invoice.bpl_id
+            bpl_name = invoice.bpl_name
+            logging.info(f"📍 Using BPL from invoice record: BPLid={bpl_id}, BPLName={bpl_name}")
+        elif invoice.lines and invoice.lines[0].serial_numbers:
+            # Fallback: Get the first serial number to determine BPL
+            first_serial = invoice.lines[0].serial_numbers[0].serial_number
+            
+            # Look up the cached serial data for BPL information
+            cached_lookup = SerialNumberLookup.query.filter_by(serial_number=first_serial).first()
+            if cached_lookup and cached_lookup.branch_id and cached_lookup.branch_name:
+                bpl_id = cached_lookup.branch_id
+                bpl_name = cached_lookup.branch_name
+                logging.info(f"📍 Using BPL from cached serial data: BPLid={bpl_id}, BPLName={bpl_name}")
+            else:
+                logging.warning(f"⚠️ No cached BPL data found for serial {first_serial}, using defaults")
+        else:
+            logging.warning(f"⚠️ No BPL data available from invoice or serials, using defaults")
+        
         # Generate SAP B1 Invoice JSON
         sap_invoice = {
             'DocDate': datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
             'DocDueDate': (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
-            'BPL_IDAssignedToInvoice': 5,  # Default branch
-            'BPLName': 'ORD-CHENNAI',
+            'BPL_IDAssignedToInvoice': bpl_id,
             'CardCode': invoice.customer_code,
             'DocumentLines': document_lines
         }

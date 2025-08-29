@@ -171,6 +171,8 @@ class ConsolidatedMySQLMigration:
                     customer_name VARCHAR(200),
                     branch_id VARCHAR(10),
                     branch_name VARCHAR(100),
+                    bpl_id INT,
+                    bpl_name VARCHAR(100),
                     user_id INT NOT NULL,
                     status VARCHAR(20) DEFAULT 'draft',
                     doc_date DATE,

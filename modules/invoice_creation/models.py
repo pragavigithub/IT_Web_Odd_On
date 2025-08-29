@@ -16,6 +16,8 @@ class InvoiceDocument(db.Model):
     customer_name = db.Column(db.String(100))
     branch_id = db.Column(db.Integer)
     branch_name = db.Column(db.String(100))
+    bpl_id = db.Column(db.Integer)  # SAP Business Place ID from serial validation
+    bpl_name = db.Column(db.String(100))  # SAP Business Place Name from serial validation
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     status = db.Column(db.String(20), default='draft')  # draft, pending_qc, created, posted, cancelled, rejected
     doc_date = db.Column(db.DateTime, default=datetime.utcnow)

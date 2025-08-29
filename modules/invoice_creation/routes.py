@@ -18,13 +18,103 @@ invoice_bp = Blueprint('invoice_creation', __name__, url_prefix='/invoice_creati
 @invoice_bp.route('/')
 @login_required
 def index():
-    """Invoice creation main page - list all invoices for current user"""
+    """Invoice creation main page - list all invoices for current user with pagination and filtering"""
     if not current_user.has_permission('invoice_creation'):
         flash('Access denied - Invoice Creation permissions required', 'error')
         return redirect(url_for('dashboard'))
     
-    invoices = InvoiceDocument.query.filter_by(user_id=current_user.id).order_by(InvoiceDocument.created_at.desc()).all()
-    return render_template('invoice_creation/index.html', invoices=invoices)
+    # Get filter parameters
+    search = request.args.get('search', '').strip()
+    status_filter = request.args.get('status', '').strip()
+    customer_filter = request.args.get('customer', '').strip()
+    date_from = request.args.get('date_from', '').strip()
+    date_to = request.args.get('date_to', '').strip()
+    
+    # Get pagination parameters
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    
+    # Ensure per_page is within reasonable limits
+    per_page = min(max(per_page, 5), 100)
+    
+    # Start with base query for current user
+    query = InvoiceDocument.query.filter_by(user_id=current_user.id)
+    
+    # Apply search filter (searches invoice number, customer code, and customer name)
+    if search:
+        search_term = f'%{search}%'
+        query = query.filter(
+            db.or_(
+                InvoiceDocument.invoice_number.ilike(search_term),
+                InvoiceDocument.customer_code.ilike(search_term),
+                InvoiceDocument.customer_name.ilike(search_term)
+            )
+        )
+    
+    # Apply status filter
+    if status_filter:
+        query = query.filter(InvoiceDocument.status == status_filter)
+    
+    # Apply customer filter
+    if customer_filter:
+        customer_term = f'%{customer_filter}%'
+        query = query.filter(
+            db.or_(
+                InvoiceDocument.customer_code.ilike(customer_term),
+                InvoiceDocument.customer_name.ilike(customer_term)
+            )
+        )
+    
+    # Apply date filters
+    if date_from:
+        try:
+            from_date = datetime.strptime(date_from, '%Y-%m-%d')
+            query = query.filter(InvoiceDocument.created_at >= from_date)
+        except ValueError:
+            pass
+    
+    if date_to:
+        try:
+            to_date = datetime.strptime(date_to, '%Y-%m-%d')
+            # Add one day to include the entire end date
+            to_date = to_date + timedelta(days=1)
+            query = query.filter(InvoiceDocument.created_at < to_date)
+        except ValueError:
+            pass
+    
+    # Order by creation date (newest first)
+    query = query.order_by(InvoiceDocument.created_at.desc())
+    
+    # Apply pagination
+    invoices_pagination = query.paginate(
+        page=page, 
+        per_page=per_page, 
+        error_out=False
+    )
+    
+    # Get unique statuses for filter dropdown
+    status_options = db.session.query(InvoiceDocument.status).filter_by(user_id=current_user.id).distinct().all()
+    status_options = [status[0] for status in status_options if status[0]]
+    
+    # Get unique customers for filter dropdown
+    customer_options = db.session.query(
+        InvoiceDocument.customer_code, 
+        InvoiceDocument.customer_name
+    ).filter_by(user_id=current_user.id).filter(
+        InvoiceDocument.customer_code.isnot(None)
+    ).distinct().all()
+    
+    return render_template('invoice_creation/index.html', 
+                         invoices=invoices_pagination.items,
+                         pagination=invoices_pagination,
+                         search=search,
+                         status_filter=status_filter,
+                         customer_filter=customer_filter,
+                         date_from=date_from,
+                         date_to=date_to,
+                         per_page=per_page,
+                         status_options=status_options,
+                         customer_options=customer_options)
 
 @invoice_bp.route('/create', methods=['GET', 'POST'])
 @login_required

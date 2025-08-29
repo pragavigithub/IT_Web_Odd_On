@@ -421,8 +421,13 @@ function loadBusinessPartners() {
                         }
                     }
                     
-                    // Show success message
-                    showTemporaryMessage(`✅ Serial number "${serialNumber}" validated successfully! Customer auto-filled. Press Enter to add.`, 'success');
+                    // Show success message and auto-add the item (like Serial Item Transfer)
+                    showTemporaryMessage(`✅ Serial number "${serialNumber}" validated successfully! Customer auto-filled. Adding to invoice...`, 'success');
+                    
+                    // Auto-add the item immediately after validation (like Serial Item Transfer)
+                    setTimeout(function() {
+                        addSerialNumber();
+                    }, 500);
                 } else {
                     console.warn('Serial number not found:', response.error || 'Unknown error');
                     showTemporaryMessage(`⚠️ Serial number "${serialNumber}" not found in SAP B1 inventory.`, 'warning');

@@ -2755,6 +2755,8 @@ class SAPIntegration:
                 "CardCode": "",
                 "CardName": "",
                 "Address": "",
+                "U_EA_CREATEDBy":serial_transfer_document.user.username,
+                "U_EA_Approved" : serial_transfer_document.user.username,
                 "Comments": f"Serial Number Transfer {serial_transfer_document.transfer_number} - {serial_transfer_document.user.username if serial_transfer_document.user else 'System'}",
                 "JournalMemo": f"Serial Number Transfer - {serial_transfer_document.transfer_number}",
                 "PriceList": -1,
